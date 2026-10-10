@@ -3,7 +3,7 @@
 对话流程：
 类型 -> 国家 -> 料性（按钮/手动）-> 账户类别（按钮/手动）
 -> 结算方式（按钮/手动）-> 手续费 -> 汇率 -> 代付单笔费用（仅代付）
--> 群组ID -> 群名称 -> 业务员 -> 确认/冲突覆盖 -> 保存
+-> 群组ID -> 群名称 -> 业务员 -> 备注（可跳过）-> 确认/冲突覆盖 -> 保存
 """
 
 from telegram import Update
@@ -331,9 +331,23 @@ async def baojia_on_entry_parent_group(baojia_update: Update, baojia_context: Co
 
 
 async def baojia_on_entry_sales(baojia_update: Update, baojia_context: ContextTypes.DEFAULT_TYPE):
-    """输入业务员，进入冲突检查。"""
+    """输入业务员，引导输入备注。"""
     baojia_sales = baojia_update.message.text.strip()
     baojia_context.user_data[BAOJIA_DRAFT_KEY]["baojia_sales"] = baojia_sales
+    await baojia_update.message.reply_text(
+        f"业务员：{baojia_utils.baojia_esc(baojia_sales) if baojia_sales else '未填写'}\n\n"
+        "请输入备注（如没有可输入 0 跳过）：",
+        reply_markup=baojia_keyboards.baojia_keyboard_cancel_entry(),
+    )
+    return baojia_states.BAOJIA_STATE_ENTRY_REMARK
+
+
+async def baojia_on_entry_remark(baojia_update: Update, baojia_context: ContextTypes.DEFAULT_TYPE):
+    """输入备注（可跳过），进入冲突检查。"""
+    baojia_remark = baojia_update.message.text.strip()
+    if baojia_remark == "0":
+        baojia_remark = ""
+    baojia_context.user_data[BAOJIA_DRAFT_KEY]["baojia_remark"] = baojia_remark
     baojia_draft = baojia_context.user_data[BAOJIA_DRAFT_KEY]
     baojia_existing = baojia_utils.baojia_find_quote(
         baojia_draft["baojia_type"], baojia_draft["baojia_country"],
