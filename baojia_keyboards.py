@@ -4,12 +4,16 @@
 回调前缀约定：
 - baojia_menu_*    主菜单
 - baojia_entry_*   报价录入
+- baojia_del_*     报价删除
 - baojia_gq_*      群内报价展开/分页/收起
 - baojia_grp_*     群 ID 查询（私聊）
 - baojia_admin_*   操作员管理
 """
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+import baojia_config
+import baojia_utils
 
 
 def baojia_btn(baojia_text, baojia_callback):
@@ -22,6 +26,7 @@ def baojia_keyboard_main(baojia_admin_flag):
     baojia_rows = [
         [baojia_btn("录入报价", "baojia_menu_add")],
         [baojia_btn("群组查询", "baojia_menu_group")],
+        [baojia_btn("删除报价", "baojia_menu_del")],
     ]
     if baojia_admin_flag:
         baojia_rows.append([baojia_btn("操作员管理", "baojia_menu_admin")])
@@ -109,6 +114,7 @@ def baojia_keyboard_group_info(baojia_group_id):
     """群查询结果操作。"""
     return InlineKeyboardMarkup([
         [baojia_btn("查看该群更新历史", f"baojia_grp_hist_{baojia_group_id}")],
+        [baojia_btn("删除该群报价", f"baojia_grp_del_{baojia_group_id}")],
         [baojia_btn("返回主菜单", "baojia_menu_home")],
     ])
 
@@ -156,4 +162,79 @@ def baojia_keyboard_emp_del_confirm(baojia_user_id):
     return InlineKeyboardMarkup([
         [baojia_btn("确认删除", f"baojia_admin_emp_delok_{baojia_user_id}"),
          baojia_btn("取消", f"baojia_admin_emp_view_{baojia_user_id}")],
+    ])
+
+
+# ==================== 报价删除 ====================
+
+def baojia_keyboard_del_cancel():
+    """删除流程中的取消按钮。"""
+    return InlineKeyboardMarkup([[baojia_btn("取消", "baojia_del_cancel")]])
+
+
+def baojia_keyboard_del_mode():
+    """删除方式选择。"""
+    return InlineKeyboardMarkup([
+        [baojia_btn("按国家查找", "baojia_del_mode_country")],
+        [baojia_btn("按群组查找", "baojia_del_mode_group")],
+        [baojia_btn("取消", "baojia_del_cancel")],
+    ])
+
+
+def baojia_keyboard_del_countries(baojia_countries):
+    """国家选择键盘（两列），回调携带列表下标。"""
+    baojia_rows = []
+    baojia_base = 0
+    for baojia_i in range(0, len(baojia_countries), 2):
+        baojia_chunk = baojia_countries[baojia_i:baojia_i + 2]
+        baojia_rows.append([
+            baojia_btn(baojia_c, f"baojia_del_c_{baojia_base + baojia_j}")
+            for baojia_j, baojia_c in enumerate(baojia_chunk)
+        ])
+        baojia_base += len(baojia_chunk)
+    baojia_rows.append([baojia_btn("取消", "baojia_del_cancel")])
+    return InlineKeyboardMarkup(baojia_rows)
+
+
+def baojia_quote_button_label(baojia_row, baojia_show_country=False, baojia_show_parent=False):
+    """删除列表中的报价按钮文案（按钮文字为纯文本，不做 HTML 转义）。
+
+    baojia_show_country：追加国家（按群组查找时用，方便区分国家）；
+    baojia_show_parent：追加所属公群（按国家查找时用，方便区分公群）。
+    """
+    baojia_label = (
+        f"{baojia_config.BAOJIA_TYPE_LABELS[baojia_row['baojia_type']]}"
+        f"｜{baojia_row['baojia_material']}"
+        f"｜{baojia_row['baojia_account_type']}"
+        f"｜{baojia_row['baojia_settle_method']}"
+        f"｜{baojia_utils.baojia_fmt_plain(baojia_row['baojia_fee_rate'])}%"
+        f"｜汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
+    )
+    if baojia_show_country:
+        baojia_label += f"｜国家：{baojia_row['baojia_country']}"
+    if baojia_show_parent:
+        baojia_label += f"｜公群：{baojia_row.get('baojia_parent_group') or '无'}"
+    return baojia_label
+
+
+def baojia_keyboard_del_quotes(baojia_rows, baojia_show_country=False, baojia_show_parent=False):
+    """报价选择键盘，每条报价一个按钮，回调携带报价 ID。"""
+    baojia_kb = []
+    for baojia_row in baojia_rows:
+        baojia_kb.append([
+            baojia_btn(
+                baojia_quote_button_label(baojia_row, baojia_show_country, baojia_show_parent),
+                f"baojia_del_q_{baojia_row['baojia_quote_id']}",
+            )
+        ])
+    baojia_kb.append([baojia_btn("取消", "baojia_del_cancel")])
+    return InlineKeyboardMarkup(baojia_kb)
+
+
+def baojia_keyboard_del_confirm(baojia_quote_id):
+    """报价删除二次确认。"""
+    return InlineKeyboardMarkup([
+        [baojia_btn("确认删除", f"baojia_del_ok_{baojia_quote_id}"),
+         baojia_btn("返回列表", "baojia_del_back")],
+        [baojia_btn("取消", "baojia_del_cancel")],
     ])
