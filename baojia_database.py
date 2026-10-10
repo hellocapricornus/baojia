@@ -37,6 +37,7 @@ BAOJIA_DDL_STATEMENTS = [
         baojia_group_name    TEXT NOT NULL DEFAULT '',
         baojia_parent_group  TEXT NOT NULL DEFAULT '',
         baojia_sales         TEXT NOT NULL DEFAULT '',
+        baojia_remark        TEXT NOT NULL DEFAULT '',
         baojia_user_id       INTEGER NOT NULL,
         baojia_created_at    TEXT NOT NULL,
         baojia_updated_at    TEXT NOT NULL
@@ -68,6 +69,7 @@ BAOJIA_DDL_STATEMENTS = [
         baojia_group_name    TEXT NOT NULL DEFAULT '',
         baojia_parent_group  TEXT NOT NULL DEFAULT '',
         baojia_sales         TEXT NOT NULL DEFAULT '',
+        baojia_remark        TEXT NOT NULL DEFAULT '',
         baojia_changed_by    INTEGER NOT NULL,
         baojia_changed_at    TEXT NOT NULL
     )
@@ -106,6 +108,8 @@ def baojia_init_db():
 BAOJIA_MIGRATION_COLUMNS = [
     ("baojia_quotes", "baojia_parent_group", "TEXT NOT NULL DEFAULT ''"),
     ("baojia_quote_history", "baojia_parent_group", "TEXT NOT NULL DEFAULT ''"),
+    ("baojia_quotes", "baojia_remark", "TEXT NOT NULL DEFAULT ''"),
+    ("baojia_quote_history", "baojia_remark", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 
