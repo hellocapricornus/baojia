@@ -24,6 +24,7 @@ import baojia_states
 import baojia_utils
 import baojia_handler_start
 import baojia_handler_entry
+import baojia_handler_del
 import baojia_handler_group
 import baojia_handler_admin
 
@@ -195,6 +196,70 @@ def baojia_register_handlers(baojia_app):
         name="baojia_entry_conversation",
     )
     baojia_app.add_handler(baojia_entry_conv)
+
+    # ---------- 报价删除对话 ----------
+    baojia_del_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(
+                baojia_handler_del.baojia_on_del_menu,
+                pattern=r"^baojia_menu_del$",
+            ),
+            CallbackQueryHandler(
+                baojia_handler_del.baojia_on_del_from_group,
+                pattern=r"^baojia_grp_del_-?\d+$",
+            ),
+        ],
+        states={
+            baojia_states.BAOJIA_STATE_DEL_MODE: [
+                CallbackQueryHandler(
+                    baojia_handler_del.baojia_on_del_mode_country,
+                    pattern=r"^baojia_del_mode_country$",
+                ),
+                CallbackQueryHandler(
+                    baojia_handler_del.baojia_on_del_mode_group,
+                    pattern=r"^baojia_del_mode_group$",
+                ),
+            ],
+            baojia_states.BAOJIA_STATE_DEL_COUNTRY: [
+                CallbackQueryHandler(
+                    baojia_handler_del.baojia_on_del_country,
+                    pattern=r"^baojia_del_c_\d+$",
+                ),
+            ],
+            baojia_states.BAOJIA_STATE_DEL_GROUP_ID: [
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND,
+                    baojia_handler_del.baojia_on_del_group_id,
+                ),
+            ],
+            baojia_states.BAOJIA_STATE_DEL_SELECT: [
+                CallbackQueryHandler(
+                    baojia_handler_del.baojia_on_del_select,
+                    pattern=r"^baojia_del_q_\d+$",
+                ),
+            ],
+            baojia_states.BAOJIA_STATE_DEL_CONFIRM: [
+                CallbackQueryHandler(
+                    baojia_handler_del.baojia_on_del_ok,
+                    pattern=r"^baojia_del_ok_\d+$",
+                ),
+                CallbackQueryHandler(
+                    baojia_handler_del.baojia_on_del_back,
+                    pattern=r"^baojia_del_back$",
+                ),
+            ],
+        },
+        fallbacks=[
+            CommandHandler("cancel", baojia_handler_start.baojia_cmd_cancel),
+            CallbackQueryHandler(
+                baojia_handler_del.baojia_on_del_cancel,
+                pattern=r"^baojia_del_cancel$",
+            ),
+        ],
+        allow_reentry=True,
+        name="baojia_del_conversation",
+    )
+    baojia_app.add_handler(baojia_del_conv)
 
     # ---------- 操作员管理对话 ----------
     baojia_emp_add_conv = ConversationHandler(
