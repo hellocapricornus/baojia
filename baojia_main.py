@@ -164,6 +164,12 @@ def baojia_register_handlers(baojia_app):
                     baojia_handler_entry.baojia_on_entry_sales,
                 )
             ],
+            baojia_states.BAOJIA_STATE_ENTRY_REMARK: [
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND,
+                    baojia_handler_entry.baojia_on_entry_remark,
+                )
+            ],
             baojia_states.BAOJIA_STATE_ENTRY_CONFIRM: [
                 CallbackQueryHandler(
                     baojia_handler_entry.baojia_on_entry_save,
