@@ -319,15 +319,15 @@ def baojia_save_quote(baojia_draft, baojia_user_id):
                     UPDATE baojia_quotes SET
                         baojia_fee_rate = ?, baojia_rate = ?, baojia_single_fee = ?,
                         baojia_group_name = ?, baojia_parent_group = ?, baojia_sales = ?,
-                        baojia_user_id = ?, baojia_updated_at = ?
+                        baojia_remark = ?, baojia_user_id = ?, baojia_updated_at = ?
                     WHERE baojia_quote_id = ?
                     """,
                     (
                         baojia_draft["baojia_fee_rate"], baojia_draft["baojia_rate"],
                         baojia_draft.get("baojia_single_fee", 0),
                         baojia_draft["baojia_group_name"], baojia_draft.get("baojia_parent_group", ""),
-                        baojia_draft["baojia_sales"], baojia_user_id,
-                        baojia_now_text, baojia_quote_id,
+                        baojia_draft["baojia_sales"], baojia_draft.get("baojia_remark", ""),
+                        baojia_user_id, baojia_now_text, baojia_quote_id,
                     ),
                 )
             else:
@@ -338,8 +338,8 @@ def baojia_save_quote(baojia_draft, baojia_user_id):
                         baojia_type, baojia_country, baojia_material, baojia_account_type,
                         baojia_settle_method, baojia_fee_rate, baojia_rate, baojia_single_fee,
                         baojia_group_id, baojia_group_name, baojia_parent_group, baojia_sales,
-                        baojia_user_id, baojia_created_at, baojia_updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        baojia_remark, baojia_user_id, baojia_created_at, baojia_updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         baojia_draft["baojia_type"], baojia_draft["baojia_country"],
@@ -348,7 +348,8 @@ def baojia_save_quote(baojia_draft, baojia_user_id):
                         baojia_draft["baojia_rate"], baojia_draft.get("baojia_single_fee", 0),
                         baojia_draft["baojia_group_id"], baojia_draft["baojia_group_name"],
                         baojia_draft.get("baojia_parent_group", ""), baojia_draft["baojia_sales"],
-                        baojia_user_id, baojia_now_text, baojia_now_text,
+                        baojia_draft.get("baojia_remark", ""), baojia_user_id,
+                        baojia_now_text, baojia_now_text,
                     ),
                 )
                 baojia_quote_id = baojia_cur.lastrowid
@@ -358,8 +359,8 @@ def baojia_save_quote(baojia_draft, baojia_user_id):
                     baojia_quote_id, baojia_action, baojia_type, baojia_country, baojia_material,
                     baojia_account_type, baojia_settle_method, baojia_fee_rate, baojia_rate,
                     baojia_single_fee, baojia_group_id, baojia_group_name, baojia_parent_group,
-                    baojia_sales, baojia_changed_by, baojia_changed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    baojia_sales, baojia_remark, baojia_changed_by, baojia_changed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     baojia_quote_id, baojia_action, baojia_draft["baojia_type"],
@@ -368,7 +369,8 @@ def baojia_save_quote(baojia_draft, baojia_user_id):
                     baojia_draft["baojia_fee_rate"], baojia_draft["baojia_rate"],
                     baojia_draft.get("baojia_single_fee", 0), baojia_draft["baojia_group_id"],
                     baojia_draft["baojia_group_name"], baojia_draft.get("baojia_parent_group", ""),
-                    baojia_draft["baojia_sales"], baojia_user_id, baojia_now_text,
+                    baojia_draft["baojia_sales"], baojia_draft.get("baojia_remark", ""),
+                    baojia_user_id, baojia_now_text,
                 ),
             )
     return baojia_quote_id, baojia_action
