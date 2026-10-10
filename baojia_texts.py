@@ -35,6 +35,7 @@ def baojia_text_main_menu(baojia_admin_flag):
         "1. 录入报价：私聊逐步录入，同维度重复录入即更新",
         "2. 群组查询：直接发送群组 ID，查看群链接、业务员与该群全部报价",
         "3. 群内查价：在内部群直接发送国家名称",
+        "4. 删除报价：按国家或群组找到报价后删除（记入历史）",
     ]
     return "\n".join(baojia_lines)
 
@@ -305,9 +306,12 @@ def baojia_text_group_info(baojia_group_id, baojia_rows):
 
 def baojia_text_group_history(baojia_group_name, baojia_rows):
     """群组更新历史。"""
+    baojia_action_labels = {"create": "新建", "update": "更新", "delete": "删除"}
     baojia_lines = [f"【群组更新历史】{baojia_utils.baojia_esc(baojia_group_name)}", ""]
     for baojia_row in baojia_rows:
-        baojia_action = "新建" if baojia_row["baojia_action"] == "create" else "更新"
+        baojia_action = baojia_action_labels.get(
+            baojia_row["baojia_action"], baojia_row["baojia_action"]
+        )
         baojia_lines.append(
             f"- {baojia_utils.baojia_display_time(baojia_row['baojia_changed_at'])}"
             f" {baojia_utils.baojia_esc(baojia_row['baojia_sales'])} {baojia_action}："
@@ -320,3 +324,50 @@ def baojia_text_group_history(baojia_group_name, baojia_rows):
             f" 汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
         )
     return "\n".join(baojia_lines)
+
+
+# ==================== 删除相关 ====================
+
+BAOJIA_TEXT_DEL_MENU = (
+    "删除报价：请选择查找方式（每次只删除一条报价）。\n"
+    "国家/群组仅用于筛选定位，进入列表后点击某条报价单独删除，"
+    "删除后立即生效并记入更新历史。"
+)
+
+BAOJIA_TEXT_DEL_EXPIRED = "删除会话已过期或数据已变化，请从主菜单重新进入删除报价。"
+
+
+def baojia_text_del_list(baojia_title, baojia_rows):
+    """报价删除列表页头。"""
+    return (
+        f"{baojia_utils.baojia_esc(baojia_title)}共 {len(baojia_rows)} 条报价，"
+        "点击选择要删除的单条（仅删除你点中的这一条）："
+    )
+
+
+def baojia_text_del_confirm(baojia_row):
+    """删除确认页，展示报价完整信息。"""
+    return (
+        "请确认要删除以下报价：\n"
+        "————————————\n"
+        f"国家：{baojia_utils.baojia_esc(baojia_row['baojia_country'])}\n"
+        f"{baojia_quote_line(baojia_row)}\n"
+        "————————————\n"
+        "删除后立即生效，原报价记入更新历史。"
+    )
+
+
+def baojia_text_del_done(baojia_row):
+    """删除成功回执。"""
+    baojia_type_label = baojia_config.BAOJIA_TYPE_LABELS[baojia_row["baojia_type"]]
+    return (
+        "报价已删除。\n\n"
+        f"{baojia_utils.baojia_esc(baojia_row['baojia_country'])}"
+        f" | {baojia_utils.baojia_esc(baojia_type_label)}"
+        f" | {baojia_utils.baojia_esc(baojia_row['baojia_material'])}"
+        f" | {baojia_utils.baojia_esc(baojia_row['baojia_account_type'])}"
+        f" | {baojia_utils.baojia_esc(baojia_row['baojia_settle_method'])}\n"
+        f"群：{baojia_utils.baojia_esc(baojia_row['baojia_group_name'])}\n"
+        f"业务员：{baojia_utils.baojia_esc(baojia_row['baojia_sales'])}\n"
+        f"时间：{baojia_utils.baojia_display_time(baojia_utils.baojia_now())}"
+    )
