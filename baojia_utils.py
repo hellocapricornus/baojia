@@ -374,6 +374,50 @@ def baojia_save_quote(baojia_draft, baojia_user_id):
     return baojia_quote_id, baojia_action
 
 
+def baojia_quote_by_id(baojia_quote_id):
+    """按报价 ID 查询单条报价，不存在返回 None。"""
+    return baojia_database.baojia_query_one(
+        "SELECT * FROM baojia_quotes WHERE baojia_quote_id = ?",
+        (baojia_quote_id,),
+    )
+
+
+def baojia_delete_quote(baojia_quote_id, baojia_user_id):
+    """删除报价并写入历史表（action='delete'），可追溯。
+
+    返回被删除的报价行；报价不存在或已删除返回 None。
+    """
+    baojia_row = baojia_quote_by_id(baojia_quote_id)
+    if not baojia_row:
+        return None
+    with contextlib.closing(baojia_database.baojia_get_connection()) as baojia_conn:
+        with baojia_conn:
+            baojia_conn.execute(
+                """
+                INSERT INTO baojia_quote_history(
+                    baojia_quote_id, baojia_action, baojia_type, baojia_country, baojia_material,
+                    baojia_account_type, baojia_settle_method, baojia_fee_rate, baojia_rate,
+                    baojia_single_fee, baojia_group_id, baojia_group_name, baojia_parent_group,
+                    baojia_sales, baojia_changed_by, baojia_changed_at)
+                VALUES (?, 'delete', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    baojia_row["baojia_quote_id"], baojia_row["baojia_type"],
+                    baojia_row["baojia_country"], baojia_row["baojia_material"],
+                    baojia_row["baojia_account_type"], baojia_row["baojia_settle_method"],
+                    baojia_row["baojia_fee_rate"], baojia_row["baojia_rate"],
+                    baojia_row.get("baojia_single_fee", 0), baojia_row["baojia_group_id"],
+                    baojia_row["baojia_group_name"], baojia_row.get("baojia_parent_group", ""),
+                    baojia_row["baojia_sales"], baojia_user_id, baojia_now(),
+                ),
+            )
+            baojia_conn.execute(
+                "DELETE FROM baojia_quotes WHERE baojia_quote_id = ?",
+                (baojia_quote_id,),
+            )
+    return baojia_row
+
+
 def baojia_list_countries():
     """返回所有已有报价的国家名称列表。"""
     baojia_rows = baojia_database.baojia_query(
