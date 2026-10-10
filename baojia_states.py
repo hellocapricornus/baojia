@@ -24,3 +24,10 @@ BAOJIA_STATE_ENTRY_CONFLICT = 116      # 归属冲突确认覆盖
 
 # 操作员管理 baojia_handler_admin
 BAOJIA_STATE_ADMIN_EMP_ADD = 401       # 添加操作员（输入 Telegram ID）
+
+# 报价删除 baojia_handler_del
+BAOJIA_STATE_DEL_MODE = 201            # 选择删除方式（按国家/按群组）
+BAOJIA_STATE_DEL_COUNTRY = 202         # 选择国家
+BAOJIA_STATE_DEL_GROUP_ID = 203        # 输入群组 ID
+BAOJIA_STATE_DEL_SELECT = 204          # 选择要删除的报价
+BAOJIA_STATE_DEL_CONFIRM = 205         # 确认删除
