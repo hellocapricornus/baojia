@@ -65,6 +65,7 @@ def baojia_text_entry_confirm(baojia_draft):
         f"群组ID：{baojia_draft['baojia_group_id']}",
         f"所属公群：{baojia_utils.baojia_esc(baojia_draft.get('baojia_parent_group', ''))}",
         f"业务员：{baojia_utils.baojia_esc(baojia_draft['baojia_sales'])}",
+        f"备注：{baojia_utils.baojia_esc(baojia_draft.get('baojia_remark', '')) or '无'}",
         "————————————",
     ])
     return "\n".join(baojia_lines)
@@ -91,7 +92,7 @@ def baojia_text_entry_saved(baojia_draft, baojia_action):
     baojia_type_label = baojia_config.BAOJIA_TYPE_LABELS[baojia_draft["baojia_type"]]
     baojia_link = baojia_utils.baojia_group_link(baojia_draft["baojia_group_id"])
     baojia_group_name = baojia_utils.baojia_esc(baojia_draft["baojia_group_name"])
-    return (
+    baojia_lines = [
         f"{baojia_word}\n\n"
         f"{baojia_utils.baojia_esc(baojia_draft['baojia_country'])}"
         f" | {baojia_utils.baojia_esc(baojia_type_label)}"
@@ -101,8 +102,12 @@ def baojia_text_entry_saved(baojia_draft, baojia_action):
         f'群：<a href="{baojia_link}">{baojia_group_name}</a>\n'
         f"所属公群：{baojia_utils.baojia_esc(baojia_draft.get('baojia_parent_group', ''))}\n"
         f"业务员：{baojia_utils.baojia_esc(baojia_draft['baojia_sales'])}\n"
-        f"时间：{baojia_utils.baojia_display_time(baojia_utils.baojia_now())}"
-    )
+    ]
+    baojia_remark = baojia_draft.get("baojia_remark", "")
+    if baojia_remark:
+        baojia_lines.append(f"备注：{baojia_utils.baojia_esc(baojia_remark)}\n")
+    baojia_lines.append(f"时间：{baojia_utils.baojia_display_time(baojia_utils.baojia_now())}")
+    return "".join(baojia_lines)
 
 
 # ==================== 群内查询展示 ====================
@@ -140,6 +145,9 @@ def baojia_quote_line(baojia_row, baojia_rank=None):
         f"业务员：{baojia_utils.baojia_esc(baojia_row['baojia_sales'])}"
         f" ｜ 更新：{baojia_utils.baojia_display_time(baojia_row['baojia_updated_at'])}"
     )
+    baojia_remark = baojia_row.get("baojia_remark", "")
+    if baojia_remark:
+        baojia_lines.append(f"备注：{baojia_utils.baojia_esc(baojia_remark)}")
     return "\n".join(baojia_lines)
 
 
@@ -323,6 +331,8 @@ def baojia_text_group_history(baojia_group_name, baojia_rows):
             f" 手续费{baojia_utils.baojia_fmt_plain(baojia_row['baojia_fee_rate'])}%"
             f" 汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
         )
+        if baojia_row.get("baojia_remark"):
+            baojia_lines.append(f"  备注：{baojia_utils.baojia_esc(baojia_row['baojia_remark'])}")
     return "\n".join(baojia_lines)
 
 
