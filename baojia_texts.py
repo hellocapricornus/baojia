@@ -114,28 +114,26 @@ def baojia_text_entry_saved(baojia_draft, baojia_action):
 
 def baojia_quote_line(baojia_row, baojia_rank=None):
     """单条报价展示（HTML），格式：
-    第N名
-    手续费xx%｜汇率xxxx
-    公户　　｜拖算
+    第N名｜手续费xx%｜汇率xxxx｜单笔费用（仅代付）｜账户类别｜结算方式
     群组：群名（超链接，点击在 Telegram 内跳转）
+    所属公群：xxx
     业务员：@xxxxx ｜ 更新：xxxx-xx-xx xx:xx
+    备注：xxx（有备注时才显示）
     """
-    baojia_lines = []
+    baojia_parts = []
     if baojia_rank is not None:
-        baojia_lines.append(f"第{baojia_rank}名")
-    baojia_lines.append(
+        baojia_parts.append(f"第{baojia_rank}名")
+    baojia_parts.append(
         f"手续费{baojia_utils.baojia_fmt_plain(baojia_row['baojia_fee_rate'])}%"
         f"｜汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
     )
     if not baojia_row["baojia_type"] == baojia_config.BAOJIA_TYPE_COLLECT:
-        baojia_lines.append(
-            f"单笔费用{baojia_utils.baojia_fmt_plain(baojia_row.get('baojia_single_fee', 0))}"
+        baojia_parts.append(
+            f"单笔{baojia_utils.baojia_fmt_plain(baojia_row.get('baojia_single_fee', 0))}"
         )
-    baojia_account = baojia_utils.baojia_esc(baojia_row["baojia_account_type"])
-    baojia_settle = baojia_utils.baojia_esc(baojia_row["baojia_settle_method"])
-    # 对齐：账户类别占 4 个中文字符宽度
-    baojia_pad = "\u3000" * max(0, 4 - len(baojia_row["baojia_account_type"]))
-    baojia_lines.append(f"{baojia_account}{baojia_pad}｜{baojia_settle}")
+    baojia_parts.append(baojia_utils.baojia_esc(baojia_row["baojia_account_type"]))
+    baojia_parts.append(baojia_utils.baojia_esc(baojia_row["baojia_settle_method"]))
+    baojia_lines = ["｜".join(baojia_parts)]
     baojia_link = baojia_utils.baojia_group_link(baojia_row["baojia_group_id"])
     baojia_group_name = baojia_utils.baojia_esc(baojia_row["baojia_group_name"])
     baojia_lines.append(f'群组：<a href="{baojia_link}">{baojia_group_name}</a>')
