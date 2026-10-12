@@ -22,9 +22,11 @@ def baojia_render_summary(baojia_country, baojia_rows, baojia_expanded):  # noqa
     """渲染折叠摘要消息文本与键盘。"""
     baojia_indices = baojia_texts.baojia_material_indices(baojia_rows)
     baojia_text = baojia_texts.baojia_text_summary(baojia_country, baojia_rows, baojia_expanded)
-    # 构建键盘：展开的料性显示收起按钮，未展开的显示展开按钮
+    # 构建键盘：展开的料性显示收起按钮，未展开的显示展开按钮（代付无料性，不设按钮）
     baojia_rows_kb = []
     for baojia_idx, (_, baojia_material) in enumerate(baojia_indices):
+        if not baojia_material:
+            continue
         if baojia_idx in baojia_expanded:
             baojia_rows_kb.append([baojia_keyboards.baojia_btn(f"收起 {baojia_material}", f"baojia_gq_col_{baojia_idx}")])
         else:
