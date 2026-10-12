@@ -1,9 +1,8 @@
 """baojia 报价机器人 - 报价录入处理器
 
 对话流程：
-类型 -> 国家 -> 料性（按钮/手动）-> 账户类别（按钮/手动）
--> 结算方式（按钮/手动）-> 手续费 -> 汇率 -> 代付单笔费用（仅代付）
--> 群组ID -> 群名称 -> 业务员 -> 备注（可跳过）-> 确认/冲突覆盖 -> 保存
+类型 -> 国家 ->（代收：料性（按钮/手动）-> 账户类别（按钮/手动）-> 结算方式（按钮/手动）；代付跳过）-> 手续费
+-> 汇率 -> 代付单笔费用（仅代付）-> 群组ID -> 群名称 -> 业务员 -> 备注（可跳过）-> 确认/冲突覆盖 -> 保存
 """
 
 from telegram import Update
@@ -36,11 +35,15 @@ async def baojia_on_entry_menu(baojia_update: Update, baojia_context: ContextTyp
 
 
 async def baojia_on_entry_type(baojia_update: Update, baojia_context: ContextTypes.DEFAULT_TYPE):
-    """选择类型（代收/代付）。"""
+    """选择类型（代收/代付）。代付不记录料性/账户类别/结算方式，直接留空。"""
     baojia_query = baojia_update.callback_query
     await baojia_utils.baojia_safe_answer(baojia_query)
     baojia_type = "collect" if "_collect" in baojia_query.data else "pay"
     baojia_context.user_data[BAOJIA_DRAFT_KEY]["baojia_type"] = baojia_type
+    if baojia_type == baojia_config.BAOJIA_TYPE_PAY:
+        baojia_context.user_data[BAOJIA_DRAFT_KEY]["baojia_material"] = ""
+        baojia_context.user_data[BAOJIA_DRAFT_KEY]["baojia_account_type"] = ""
+        baojia_context.user_data[BAOJIA_DRAFT_KEY]["baojia_settle_method"] = ""
     await baojia_query.edit_message_text(
         f"类型：{baojia_config.BAOJIA_TYPE_LABELS[baojia_type]}\n\n请输入国家名称（如：坦桑尼亚）：",
         reply_markup=baojia_keyboards.baojia_keyboard_cancel_entry(),
@@ -51,7 +54,7 @@ async def baojia_on_entry_type(baojia_update: Update, baojia_context: ContextTyp
 # ==================== 国家 ====================
 
 async def baojia_on_entry_country(baojia_update: Update, baojia_context: ContextTypes.DEFAULT_TYPE):
-    """输入国家。"""
+    """输入国家。代付直接进手续费，代收进入料性选择。"""
     baojia_country = baojia_update.message.text.strip()
     if not baojia_country:
         await baojia_update.message.reply_text(
@@ -60,6 +63,12 @@ async def baojia_on_entry_country(baojia_update: Update, baojia_context: Context
         )
         return baojia_states.BAOJIA_STATE_ENTRY_COUNTRY
     baojia_context.user_data[BAOJIA_DRAFT_KEY]["baojia_country"] = baojia_country
+    if baojia_context.user_data[BAOJIA_DRAFT_KEY]["baojia_type"] == baojia_config.BAOJIA_TYPE_PAY:
+        await baojia_update.message.reply_text(
+            f"国家：{baojia_utils.baojia_esc(baojia_country)}\n\n请输入手续费百分比（如：8 表示 8%）：",
+            reply_markup=baojia_keyboards.baojia_keyboard_cancel_entry(),
+        )
+        return baojia_states.BAOJIA_STATE_ENTRY_FEE
     await baojia_update.message.reply_text(
         f"国家：{baojia_utils.baojia_esc(baojia_country)}\n\n请选择料性：",
         reply_markup=baojia_keyboards.baojia_keyboard_preset(
