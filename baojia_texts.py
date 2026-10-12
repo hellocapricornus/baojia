@@ -49,13 +49,18 @@ def baojia_text_entry_confirm(baojia_draft):
         "请确认录入信息：",
         "————————————",
         f"类型：{baojia_utils.baojia_esc(baojia_type_label)}",
-        f"国家：{baojia_utils.baojia_esc(baojia_draft['baojia_country'])}"
-        f" | 料性：{baojia_utils.baojia_esc(baojia_draft['baojia_material'])}",
-        f"账户类别：{baojia_utils.baojia_esc(baojia_draft['baojia_account_type'])}"
-        f" | 结算方式：{baojia_utils.baojia_esc(baojia_draft['baojia_settle_method'])}",
+        f"国家：{baojia_utils.baojia_esc(baojia_draft['baojia_country'])}",
+    ]
+    if baojia_draft["baojia_type"] == baojia_config.BAOJIA_TYPE_COLLECT:
+        baojia_lines.extend([
+            f"料性：{baojia_utils.baojia_esc(baojia_draft['baojia_material'])}",
+            f"账户类别：{baojia_utils.baojia_esc(baojia_draft['baojia_account_type'])}"
+            f" | 结算方式：{baojia_utils.baojia_esc(baojia_draft['baojia_settle_method'])}",
+        ])
+    baojia_lines.extend([
         f"手续费：{baojia_utils.baojia_fmt_plain(baojia_draft['baojia_fee_rate'])}%"
         f" | 汇率：{baojia_utils.baojia_fmt_plain(baojia_draft['baojia_rate'])}",
-    ]
+    ])
     if baojia_draft["baojia_type"] == baojia_config.BAOJIA_TYPE_PAY:
         baojia_lines.append(
             f"单笔费用：{baojia_utils.baojia_fmt_plain(baojia_draft.get('baojia_single_fee', 0))}"
@@ -72,14 +77,18 @@ def baojia_text_entry_confirm(baojia_draft):
 
 
 def baojia_text_entry_conflict(baojia_existing):
-    """归属冲突提示。"""
+    """归属冲突提示。代付不显示料性/账户类别/结算方式。"""
+    baojia_dims = baojia_utils.baojia_esc(baojia_existing["baojia_country"])
+    if baojia_existing["baojia_type"] != baojia_config.BAOJIA_TYPE_PAY:
+        baojia_dims += (
+            f"-{baojia_utils.baojia_esc(baojia_existing['baojia_material'])}"
+            f"-{baojia_utils.baojia_esc(baojia_existing['baojia_account_type'])}"
+            f"-{baojia_utils.baojia_esc(baojia_existing['baojia_settle_method'])}"
+        )
+    baojia_dims += f"-{baojia_utils.baojia_esc(baojia_config.BAOJIA_TYPE_LABELS[baojia_existing['baojia_type']])}"
     return (
         "提示：该群组【"
-        f"{baojia_utils.baojia_esc(baojia_existing['baojia_country'])}-"
-        f"{baojia_utils.baojia_esc(baojia_existing['baojia_material'])}-"
-        f"{baojia_utils.baojia_esc(baojia_existing['baojia_account_type'])}-"
-        f"{baojia_utils.baojia_esc(baojia_existing['baojia_settle_method'])}-"
-        f"{baojia_utils.baojia_esc(baojia_config.BAOJIA_TYPE_LABELS[baojia_existing['baojia_type']])}】已有报价\n"
+        f"{baojia_dims}】已有报价\n"
         f"归属业务员：{baojia_utils.baojia_esc(baojia_existing['baojia_sales'])}"
         f"（更新于 {baojia_utils.baojia_display_time(baojia_existing['baojia_updated_at'])}）\n"
         "如价格有变动，请直接覆盖更新为最新报价。"
@@ -92,11 +101,15 @@ def baojia_text_entry_saved(baojia_draft, baojia_action):
     baojia_type_label = baojia_config.BAOJIA_TYPE_LABELS[baojia_draft["baojia_type"]]
     baojia_link = baojia_utils.baojia_group_link(baojia_draft["baojia_group_id"])
     baojia_group_name = baojia_utils.baojia_esc(baojia_draft["baojia_group_name"])
-    baojia_lines = [
-        f"{baojia_word}\n\n"
+    baojia_head = (
         f"{baojia_utils.baojia_esc(baojia_draft['baojia_country'])}"
         f" | {baojia_utils.baojia_esc(baojia_type_label)}"
-        f" | {baojia_utils.baojia_esc(baojia_draft['baojia_material'])}\n"
+    )
+    if baojia_draft["baojia_type"] == baojia_config.BAOJIA_TYPE_COLLECT:
+        baojia_head += f" | {baojia_utils.baojia_esc(baojia_draft['baojia_material'])}"
+    baojia_lines = [
+        f"{baojia_word}\n\n"
+        f"{baojia_head}\n"
         f"手续费 {baojia_utils.baojia_fmt_plain(baojia_draft['baojia_fee_rate'])}%"
         f" | 汇率 {baojia_utils.baojia_fmt_plain(baojia_draft['baojia_rate'])}\n"
         f'群：<a href="{baojia_link}">{baojia_group_name}</a>\n'
@@ -127,12 +140,14 @@ def baojia_quote_line(baojia_row, baojia_rank=None):
         f"手续费{baojia_utils.baojia_fmt_plain(baojia_row['baojia_fee_rate'])}%"
         f"｜汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
     )
-    if not baojia_row["baojia_type"] == baojia_config.BAOJIA_TYPE_COLLECT:
-        baojia_parts.append(
-            f"单笔{baojia_utils.baojia_fmt_plain(baojia_row.get('baojia_single_fee', 0))}"
-        )
-    baojia_parts.append(baojia_utils.baojia_esc(baojia_row["baojia_account_type"]))
-    baojia_parts.append(baojia_utils.baojia_esc(baojia_row["baojia_settle_method"]))
+    if baojia_row["baojia_type"] == baojia_config.BAOJIA_TYPE_PAY:
+        # 代付：显示单笔费用（为 0 时不显示），不显示账户类别/结算方式
+        baojia_single_fee = baojia_row.get("baojia_single_fee", 0)
+        if baojia_single_fee:
+            baojia_parts.append(f"单笔{baojia_utils.baojia_fmt_plain(baojia_single_fee)}")
+    else:
+        baojia_parts.append(baojia_utils.baojia_esc(baojia_row["baojia_account_type"]))
+        baojia_parts.append(baojia_utils.baojia_esc(baojia_row["baojia_settle_method"]))
     baojia_lines = ["｜".join(baojia_parts)]
     baojia_link = baojia_utils.baojia_group_link(baojia_row["baojia_group_id"])
     baojia_group_name = baojia_utils.baojia_esc(baojia_row["baojia_group_name"])
@@ -158,6 +173,11 @@ def baojia_group_rows(baojia_rows):
     for baojia_type in (baojia_config.BAOJIA_TYPE_COLLECT, baojia_config.BAOJIA_TYPE_PAY):
         baojia_typed = [baojia_row for baojia_row in baojia_rows if baojia_row["baojia_type"] == baojia_type]
         if not baojia_typed:
+            continue
+        if baojia_type == baojia_config.BAOJIA_TYPE_PAY:
+            # 代付不记录料性/账户类别/结算方式，全部合并为一组（空料性）
+            baojia_sorted = sorted(baojia_typed, key=baojia_utils.baojia_quote_usdt)
+            baojia_result.append((baojia_type, [("", baojia_sorted)]))
             continue
         baojia_materials = {}
         for baojia_row in baojia_typed:
@@ -185,6 +205,13 @@ def baojia_material_block(baojia_material, baojia_sorted, baojia_expanded, baoji
     """
     baojia_is_expanded = baojia_idx in baojia_expanded
     baojia_count = len(baojia_sorted)
+    if not baojia_material:
+        # 代付（无料性）：无标题，始终显示全部
+        baojia_body_parts = [
+            baojia_quote_line(baojia_row, baojia_rank=baojia_rank)
+            for baojia_rank, baojia_row in enumerate(baojia_sorted, start=1)
+        ]
+        return "<blockquote>" + "\n\n".join(baojia_body_parts) + "</blockquote>"
     if baojia_is_expanded:
         baojia_title = f"▎{baojia_utils.baojia_esc(baojia_material)}（{baojia_count} 条）"
         baojia_body_parts = [
@@ -318,17 +345,28 @@ def baojia_text_group_history(baojia_group_name, baojia_rows):
         baojia_action = baojia_action_labels.get(
             baojia_row["baojia_action"], baojia_row["baojia_action"]
         )
-        baojia_lines.append(
+        baojia_head = (
             f"- {baojia_utils.baojia_display_time(baojia_row['baojia_changed_at'])}"
             f" {baojia_utils.baojia_esc(baojia_row['baojia_sales'])} {baojia_action}："
             f"{baojia_utils.baojia_esc(baojia_row['baojia_country'])}"
-            f" {baojia_utils.baojia_esc(baojia_row['baojia_material'])}"
-            f" {baojia_utils.baojia_esc(baojia_row['baojia_account_type'])}"
-            f" {baojia_utils.baojia_esc(baojia_row['baojia_settle_method'])}"
-            f" {baojia_utils.baojia_esc(baojia_config.BAOJIA_TYPE_LABELS[baojia_row['baojia_type']])}"
-            f" 手续费{baojia_utils.baojia_fmt_plain(baojia_row['baojia_fee_rate'])}%"
-            f" 汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
         )
+        if baojia_row["baojia_type"] == baojia_config.BAOJIA_TYPE_PAY:
+            baojia_head += (
+                f" {baojia_utils.baojia_esc(baojia_config.BAOJIA_TYPE_LABELS[baojia_row['baojia_type']])}"
+                f" 手续费{baojia_utils.baojia_fmt_plain(baojia_row['baojia_fee_rate'])}%"
+                f" 汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
+                f" 单笔{baojia_utils.baojia_fmt_plain(baojia_row.get('baojia_single_fee', 0))}"
+            )
+        else:
+            baojia_head += (
+                f" {baojia_utils.baojia_esc(baojia_row['baojia_material'])}"
+                f" {baojia_utils.baojia_esc(baojia_row['baojia_account_type'])}"
+                f" {baojia_utils.baojia_esc(baojia_row['baojia_settle_method'])}"
+                f" {baojia_utils.baojia_esc(baojia_config.BAOJIA_TYPE_LABELS[baojia_row['baojia_type']])}"
+                f" 手续费{baojia_utils.baojia_fmt_plain(baojia_row['baojia_fee_rate'])}%"
+                f" 汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
+            )
+        baojia_lines.append(baojia_head)
         if baojia_row.get("baojia_remark"):
             baojia_lines.append(f"  备注：{baojia_utils.baojia_esc(baojia_row['baojia_remark'])}")
     return "\n".join(baojia_lines)
@@ -366,15 +404,21 @@ def baojia_text_del_confirm(baojia_row):
 
 
 def baojia_text_del_done(baojia_row):
-    """删除成功回执。"""
+    """删除成功回执。代付不显示料性/账户类别/结算方式。"""
     baojia_type_label = baojia_config.BAOJIA_TYPE_LABELS[baojia_row["baojia_type"]]
-    return (
-        "报价已删除。\n\n"
+    baojia_head = (
         f"{baojia_utils.baojia_esc(baojia_row['baojia_country'])}"
         f" | {baojia_utils.baojia_esc(baojia_type_label)}"
-        f" | {baojia_utils.baojia_esc(baojia_row['baojia_material'])}"
-        f" | {baojia_utils.baojia_esc(baojia_row['baojia_account_type'])}"
-        f" | {baojia_utils.baojia_esc(baojia_row['baojia_settle_method'])}\n"
+    )
+    if baojia_row["baojia_type"] != baojia_config.BAOJIA_TYPE_PAY:
+        baojia_head += (
+            f" | {baojia_utils.baojia_esc(baojia_row['baojia_material'])}"
+            f" | {baojia_utils.baojia_esc(baojia_row['baojia_account_type'])}"
+            f" | {baojia_utils.baojia_esc(baojia_row['baojia_settle_method'])}"
+        )
+    return (
+        "报价已删除。\n\n"
+        f"{baojia_head}\n"
         f"群：{baojia_utils.baojia_esc(baojia_row['baojia_group_name'])}\n"
         f"业务员：{baojia_utils.baojia_esc(baojia_row['baojia_sales'])}\n"
         f"时间：{baojia_utils.baojia_display_time(baojia_utils.baojia_now())}"
