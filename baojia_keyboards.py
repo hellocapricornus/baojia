@@ -84,30 +84,6 @@ def baojia_keyboard_entry_conflict():
     ])
 
 
-# ==================== 群内报价展示 ====================
-
-def baojia_keyboard_summary(baojia_country, baojia_indices):
-    """折叠摘要的键盘：每个料性一个展开/收起按钮。
-    baojia_indices: [(type, material), ...] 顺序与展示一致。
-    """
-    baojia_rows = []
-    for baojia_idx, (_, baojia_material) in enumerate(baojia_indices):
-        baojia_rows.append([
-            baojia_btn(
-                f"展开 {baojia_material}",
-                f"baojia_gq_exp_{baojia_idx}",
-            )
-        ])
-    return InlineKeyboardMarkup(baojia_rows)
-
-
-def baojia_keyboard_expanded(baojia_country, baojia_idx, baojia_material):
-    """展开状态下的收起按钮（单条）。"""
-    return InlineKeyboardMarkup([
-        [baojia_btn(f"收起 {baojia_material}", f"baojia_gq_col_{baojia_idx}")],
-    ])
-
-
 # ==================== 群 ID 查询 ====================
 
 def baojia_keyboard_group_info(baojia_group_id):
@@ -199,17 +175,28 @@ def baojia_keyboard_del_countries(baojia_countries):
 def baojia_quote_button_label(baojia_row, baojia_show_country=False, baojia_show_parent=False):
     """删除列表中的报价按钮文案（按钮文字为纯文本，不做 HTML 转义）。
 
+    代付不显示料性/账户类别/结算方式，显示单笔费用。
     baojia_show_country：追加国家（按群组查找时用，方便区分国家）；
     baojia_show_parent：追加所属公群（按国家查找时用，方便区分公群）。
     """
-    baojia_label = (
-        f"{baojia_config.BAOJIA_TYPE_LABELS[baojia_row['baojia_type']]}"
-        f"｜{baojia_row['baojia_material']}"
-        f"｜{baojia_row['baojia_account_type']}"
-        f"｜{baojia_row['baojia_settle_method']}"
-        f"｜{baojia_utils.baojia_fmt_plain(baojia_row['baojia_fee_rate'])}%"
-        f"｜汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
-    )
+    if baojia_row["baojia_type"] == baojia_config.BAOJIA_TYPE_PAY:
+        baojia_label = (
+            f"{baojia_config.BAOJIA_TYPE_LABELS[baojia_row['baojia_type']]}"
+            f"｜{baojia_utils.baojia_fmt_plain(baojia_row['baojia_fee_rate'])}%"
+            f"｜汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
+        )
+        baojia_single_fee = baojia_row.get("baojia_single_fee", 0)
+        if baojia_single_fee:
+            baojia_label += f"｜单笔{baojia_utils.baojia_fmt_plain(baojia_single_fee)}"
+    else:
+        baojia_label = (
+            f"{baojia_config.BAOJIA_TYPE_LABELS[baojia_row['baojia_type']]}"
+            f"｜{baojia_row['baojia_material']}"
+            f"｜{baojia_row['baojia_account_type']}"
+            f"｜{baojia_row['baojia_settle_method']}"
+            f"｜{baojia_utils.baojia_fmt_plain(baojia_row['baojia_fee_rate'])}%"
+            f"｜汇率{baojia_utils.baojia_fmt_plain(baojia_row['baojia_rate'])}"
+        )
     if baojia_show_country:
         baojia_label += f"｜国家：{baojia_row['baojia_country']}"
     if baojia_show_parent:
