@@ -436,6 +436,25 @@ def baojia_quotes_by_country(baojia_country):
     )
 
 
+def baojia_material_stats():
+    """统计每个国家已记录的料性与条数。
+
+    返回行字段：baojia_country, baojia_type, baojia_material, baojia_count。
+    代收在前、代付在后（代付料性为空字符串）。
+    """
+    return baojia_database.baojia_query(
+        """
+        SELECT baojia_country, baojia_type, baojia_material,
+               COUNT(*) AS baojia_count
+        FROM baojia_quotes
+        GROUP BY baojia_country, baojia_type, baojia_material
+        ORDER BY baojia_country,
+                 CASE baojia_type WHEN 'collect' THEN 0 ELSE 1 END,
+                 baojia_material
+        """
+    )
+
+
 def baojia_quotes_by_group(baojia_group_id):
     """按群组 ID 取出全部报价行。"""
     return baojia_database.baojia_query(
