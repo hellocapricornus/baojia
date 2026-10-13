@@ -108,6 +108,22 @@ async def baojia_on_gq_collapse(baojia_update: Update, baojia_context: ContextTy
     )
 
 
+# ==================== 国家料性统计 ====================
+
+@baojia_utils.baojia_operator_only
+async def baojia_on_stats(baojia_update: Update, baojia_context: ContextTypes.DEFAULT_TYPE):  # noqa: ARG001
+    """统计各国家已记录的料性与条数（/stats 命令或主菜单按钮）。"""
+    baojia_rows = baojia_utils.baojia_material_stats()
+    baojia_text = baojia_texts.baojia_text_material_stats(baojia_rows)
+    baojia_markup = baojia_keyboards.baojia_keyboard_back_main()
+    if baojia_update.callback_query:
+        baojia_query = baojia_update.callback_query
+        await baojia_utils.baojia_safe_answer(baojia_query)
+        await baojia_query.edit_message_text(baojia_text, reply_markup=baojia_markup)
+    else:
+        await baojia_update.message.reply_text(baojia_text, reply_markup=baojia_markup)
+
+
 # ==================== 私聊群 ID 查询 ====================
 
 @baojia_utils.baojia_operator_only
