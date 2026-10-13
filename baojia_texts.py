@@ -36,6 +36,7 @@ def baojia_text_main_menu(baojia_admin_flag):
         "2. 群组查询：直接发送群组 ID，查看群链接、业务员与该群全部报价",
         "3. 群内查价：在内部群直接发送国家名称",
         "4. 删除报价：按国家或群组找到报价后删除（记入历史）",
+        "5. 国家料性统计：查看各国家已记录的料性与条数（也可发送 /stats）",
     ]
     return "\n".join(baojia_lines)
 
@@ -369,6 +370,43 @@ def baojia_text_group_history(baojia_group_name, baojia_rows):
         baojia_lines.append(baojia_head)
         if baojia_row.get("baojia_remark"):
             baojia_lines.append(f"  备注：{baojia_utils.baojia_esc(baojia_row['baojia_remark'])}")
+    return "\n".join(baojia_lines)
+
+
+# ==================== 国家料性统计 ====================
+
+def baojia_text_material_stats(baojia_rows):
+    """国家料性统计：每个国家已记录哪些料性、各多少条。"""
+    if not baojia_rows:
+        return "当前还没有任何报价记录。"
+    baojia_total = sum(baojia_row["baojia_count"] for baojia_row in baojia_rows)
+    baojia_country_count = len({baojia_row["baojia_country"] for baojia_row in baojia_rows})
+    baojia_lines = [
+        f"【国家料性统计】共 {baojia_country_count} 个国家 / {baojia_total} 条报价",
+        "",
+    ]
+    baojia_current = None
+    for baojia_row in baojia_rows:
+        if baojia_row["baojia_country"] != baojia_current:
+            baojia_current = baojia_row["baojia_country"]
+            baojia_subtotal = sum(
+                baojia_r["baojia_count"]
+                for baojia_r in baojia_rows
+                if baojia_r["baojia_country"] == baojia_current
+            )
+            if baojia_lines[-1] != "":
+                baojia_lines.append("")
+            baojia_lines.append(
+                f"{baojia_utils.baojia_esc(baojia_current)}（{baojia_subtotal} 条）"
+            )
+        baojia_type_label = baojia_config.BAOJIA_TYPE_LABELS[baojia_row["baojia_type"]]
+        if baojia_row["baojia_type"] == baojia_config.BAOJIA_TYPE_PAY:
+            baojia_item = baojia_type_label
+        else:
+            baojia_item = (
+                f"{baojia_type_label} {baojia_utils.baojia_esc(baojia_row['baojia_material'])}"
+            )
+        baojia_lines.append(f"- {baojia_item}：{baojia_row['baojia_count']} 条")
     return "\n".join(baojia_lines)
 
 
