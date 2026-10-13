@@ -49,9 +49,10 @@ def baojia_register_handlers(baojia_app):
         )
     )
 
-    # ---------- /start /cancel ----------
+    # ---------- /start /cancel /stats ----------
     baojia_app.add_handler(CommandHandler("start", baojia_handler_start.baojia_cmd_start))
     baojia_app.add_handler(CommandHandler("cancel", baojia_handler_start.baojia_cmd_cancel))
+    baojia_app.add_handler(CommandHandler("stats", baojia_handler_group.baojia_on_stats))
 
     # ---------- 报价录入对话 ----------
     baojia_entry_conv = ConversationHandler(
@@ -310,6 +311,14 @@ def baojia_register_handlers(baojia_app):
         CallbackQueryHandler(
             baojia_handler_group.baojia_on_gq_collapse,
             pattern=r"^baojia_gq_col_\d+$",
+        )
+    )
+
+    # 国家料性统计（主菜单按钮）
+    baojia_app.add_handler(
+        CallbackQueryHandler(
+            baojia_handler_group.baojia_on_stats,
+            pattern=r"^baojia_menu_stats$",
         )
     )
 
