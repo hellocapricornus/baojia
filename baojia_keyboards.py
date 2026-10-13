@@ -26,6 +26,7 @@ def baojia_keyboard_main(baojia_admin_flag):
     baojia_rows = [
         [baojia_btn("录入报价", "baojia_menu_add")],
         [baojia_btn("群组查询", "baojia_menu_group")],
+        [baojia_btn("国家料性统计", "baojia_menu_stats")],
         [baojia_btn("删除报价", "baojia_menu_del")],
     ]
     if baojia_admin_flag:
