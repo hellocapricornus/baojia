@@ -27,6 +27,7 @@ import baojia_handler_entry
 import baojia_handler_del
 import baojia_handler_group
 import baojia_handler_admin
+import baojia_web
 
 
 def baojia_setup_logging():
@@ -420,6 +421,35 @@ def baojia_run():
         .defaults(Defaults(parse_mode=ParseMode.HTML))
         .build()
     )
+
+    # ---------- Web 后台（与 PTB 共享 event loop） ----------
+    from aiohttp import web as aiohttp_web
+
+    baojia_web_app = baojia_web.baojia_create_web_app()
+    baojia_web_runner = None
+
+    async def baojia_web_start(baojia_tg_app):  # noqa: ARG001
+        nonlocal baojia_web_runner
+        baojia_runner = aiohttp_web.AppRunner(baojia_web_app)
+        await baojia_runner.setup()
+        baojia_site = aiohttp_web.TCPSite(
+            baojia_runner, baojia_config.baojia_WEB_HOST, baojia_config.baojia_WEB_PORT
+        )
+        await baojia_site.start()
+        baojia_web_runner = baojia_runner
+        baojia_logger.info(
+            f"Web 后台已启动：http://{baojia_config.baojia_WEB_HOST}:{baojia_config.baojia_WEB_PORT}"
+        )
+
+    async def baojia_web_stop(baojia_tg_app):  # noqa: ARG001
+        nonlocal baojia_web_runner
+        if baojia_web_runner:
+            await baojia_web_runner.cleanup()
+            baojia_web_runner = None
+
+    baojia_app.post_init = baojia_web_start
+    baojia_app.post_stop = baojia_web_stop
+
     baojia_register_handlers(baojia_app)
     baojia_app.run_polling(allowed_updates=Update.ALL_TYPES)
 
