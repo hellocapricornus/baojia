@@ -6,9 +6,12 @@
 
 import contextlib
 import functools
+import hashlib
+import hmac
 import html
 import re
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
 
 import baojia_config
 import baojia_database
@@ -189,6 +192,212 @@ def baojia_can_use(baojia_user_id):
         and baojia_row["baojia_is_active"] == 1
         and baojia_row["baojia_role"] in ("admin", "operator")
     )
+
+
+# ==================== Web 后台账号密码 ====================
+
+BAOJIA_PBKDF2_ITERATIONS = 200_000
+
+
+def baojia_hash_password(baojia_password):
+    """用 pbkdf2_sha256 哈希密码，返回 'pbkdf2_sha256$迭代次数$盐$哈希' 字符串。"""
+    baojia_salt = secrets.token_bytes(16)
+    baojia_hash = hashlib.pbkdf2_hmac(
+        "sha256", baojia_password.encode("utf-8"), baojia_salt, BAOJIA_PBKDF2_ITERATIONS
+    )
+    return f"pbkdf2_sha256${BAOJIA_PBKDF2_ITERATIONS}${baojia_salt.hex()}${baojia_hash.hex()}"
+
+
+def baojia_verify_password(baojia_password, baojia_stored):
+    """校验密码是否匹配存储的哈希。"""
+    if not baojia_stored or not baojia_password:
+        return False
+    try:
+        baojia_algo, baojia_iters, baojia_salt_hex, baojia_hash_hex = baojia_stored.split("$")
+        if baojia_algo != "pbkdf2_sha256":
+            return False
+        baojia_salt = bytes.fromhex(baojia_salt_hex)
+        baojia_expected = bytes.fromhex(baojia_hash_hex)
+        baojia_actual = hashlib.pbkdf2_hmac(
+            "sha256", baojia_password.encode("utf-8"), baojia_salt, int(baojia_iters)
+        )
+        return hmac.compare_digest(baojia_actual, baojia_expected)
+    except (ValueError, TypeError):
+        return False
+
+
+def baojia_user_by_username(baojia_username):
+    """按用户名查询用户，不存在返回 None。"""
+    if not baojia_username:
+        return None
+    return baojia_database.baojia_query_one(
+        "SELECT * FROM baojia_users WHERE baojia_username = ?",
+        (baojia_username,),
+    )
+
+
+def baojia_ensure_web_admin():
+    """确保存在一个 Web 后台管理员账号。
+
+    按 baojia_config.baojia_ADMIN_USERNAME 查询：
+    - 不存在则创建（baojia_user_id=0，role=admin，is_active=1）；
+    - 已存在则跳过（不覆盖密码，便于管理员自行改密）。
+    """
+    baojia_username = baojia_config.baojia_ADMIN_USERNAME
+    if not baojia_username:
+        return
+    baojia_existing = baojia_user_by_username(baojia_username)
+    if baojia_existing:
+        return
+    baojia_database.baojia_execute(
+        """
+        INSERT INTO baojia_users(
+            baojia_user_id, baojia_full_name, baojia_role, baojia_is_active,
+            baojia_created_at, baojia_username, baojia_password_hash)
+        VALUES (0, ?, 'admin', 1, ?, ?, ?)
+        """,
+        (
+            "Web 管理员", baojia_now(), baojia_username,
+            baojia_hash_password(baojia_config.baojia_ADMIN_PASSWORD),
+        ),
+    )
+
+
+# ==================== 用户管理（Web 后台用） ====================
+
+# 受保护账号：Web 初始管理员 user_id=0，禁止删除/禁用
+BAOJIA_PROTECTED_USER_IDS = {0}
+
+
+def baojia_list_users():
+    """返回所有用户（不含密码哈希），按 user_id 排序。"""
+    return baojia_database.baojia_query(
+        "SELECT baojia_user_id, baojia_full_name, baojia_role, baojia_is_active, "
+        "baojia_username, baojia_created_at FROM baojia_users ORDER BY baojia_user_id"
+    )
+
+
+def baojia_user_by_id(baojia_user_id):
+    """按 ID 查询用户，不存在返回 None。"""
+    return baojia_database.baojia_query_one(
+        "SELECT baojia_user_id, baojia_full_name, baojia_role, baojia_is_active, "
+        "baojia_username, baojia_created_at FROM baojia_users WHERE baojia_user_id = ?",
+        (baojia_user_id,),
+    )
+
+
+def baojia_create_user(baojia_full_name, baojia_role, baojia_is_active,
+                       baojia_username=None, baojia_password=None, baojia_telegram_id=None):
+    """新建用户。
+
+    - baojia_telegram_id 提供则用它作为 user_id（Telegram 操作员）；
+      否则分配一个负数 user_id（纯 Web 用户，避开 Telegram 正数 ID）。
+    - baojia_username 若提供则必须唯一，否则报错。
+    返回新 user_id。
+    """
+    if baojia_username:
+        if baojia_user_by_username(baojia_username):
+            raise ValueError(f"用户名 {baojia_username} 已存在")
+    if baojia_telegram_id is not None:
+        baojia_user_id = int(baojia_telegram_id)
+        if baojia_user_by_id(baojia_user_id):
+            raise ValueError(f"用户 ID {baojia_user_id} 已存在")
+    else:
+        baojia_min_row = baojia_database.baojia_query_one(
+            "SELECT MIN(baojia_user_id) AS m FROM baojia_users"
+        )
+        baojia_user_id = min((baojia_min_row["m"] or 0) - 1, -1)
+    baojia_database.baojia_execute(
+        """
+        INSERT INTO baojia_users(
+            baojia_user_id, baojia_full_name, baojia_role, baojia_is_active,
+            baojia_created_at, baojia_username, baojia_password_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            baojia_user_id, baojia_full_name, baojia_role, int(bool(baojia_is_active)),
+            baojia_now(), baojia_username or "",
+            baojia_hash_password(baojia_password) if baojia_password else "",
+        ),
+    )
+    return baojia_user_id
+
+
+def baojia_update_user(baojia_user_id, baojia_full_name=None, baojia_role=None,
+                       baojia_is_active=None, baojia_username=None):
+    """更新用户非密码字段。返回更新后的行，不存在返回 None。"""
+    baojia_existing = baojia_user_by_id(baojia_user_id)
+    if not baojia_existing:
+        return None
+    baojia_set, baojia_params = [], []
+    if baojia_full_name is not None:
+        baojia_set.append("baojia_full_name = ?"); baojia_params.append(baojia_full_name)
+    if baojia_role is not None:
+        baojia_set.append("baojia_role = ?"); baojia_params.append(baojia_role)
+    if baojia_is_active is not None:
+        # 受保护账号不允许禁用
+        if baojia_user_id in BAOJIA_PROTECTED_USER_IDS and not baojia_is_active:
+            raise ValueError("初始管理员账号禁止禁用")
+        baojia_set.append("baojia_is_active = ?"); baojia_params.append(int(bool(baojia_is_active)))
+    if baojia_username is not None:
+        baojia_dup = baojia_user_by_username(baojia_username)
+        if baojia_dup and baojia_dup["baojia_user_id"] != baojia_user_id:
+            raise ValueError(f"用户名 {baojia_username} 已存在")
+        baojia_set.append("baojia_username = ?"); baojia_params.append(baojia_username)
+    if not baojia_set:
+        return baojia_existing
+    baojia_params.append(baojia_user_id)
+    baojia_database.baojia_execute(
+        f"UPDATE baojia_users SET {', '.join(baojia_set)} WHERE baojia_user_id = ?",
+        tuple(baojia_params),
+    )
+    return baojia_user_by_id(baojia_user_id)
+
+
+def baojia_set_password(baojia_user_id, baojia_password):
+    """直接设置用户密码（管理员重置用）。返回是否成功。"""
+    if not baojia_password:
+        raise ValueError("密码不能为空")
+    if not baojia_user_by_id(baojia_user_id):
+        return False
+    baojia_database.baojia_execute(
+        "UPDATE baojia_users SET baojia_password_hash = ? WHERE baojia_user_id = ?",
+        (baojia_hash_password(baojia_password), baojia_user_id),
+    )
+    return True
+
+
+def baojia_change_own_password(baojia_user_id, baojia_old_password, baojia_new_password):
+    """用户自助改密：校验旧密码后设置新密码。"""
+    if not baojia_new_password:
+        raise ValueError("新密码不能为空")
+    baojia_row = baojia_database.baojia_query_one(
+        "SELECT baojia_password_hash FROM baojia_users WHERE baojia_user_id = ?",
+        (baojia_user_id,),
+    )
+    if not baojia_row:
+        raise ValueError("用户不存在")
+    if not baojia_verify_password(baojia_old_password, baojia_row["baojia_password_hash"]):
+        raise ValueError("旧密码不正确")
+    baojia_database.baojia_execute(
+        "UPDATE baojia_users SET baojia_password_hash = ? WHERE baojia_user_id = ?",
+        (baojia_hash_password(baojia_new_password), baojia_user_id),
+    )
+    return True
+
+
+def baojia_delete_user(baojia_user_id):
+    """删除用户。受保护账号禁止删除。返回被删的行，不存在返回 None。"""
+    if baojia_user_id in BAOJIA_PROTECTED_USER_IDS:
+        raise ValueError("初始管理员账号禁止删除")
+    baojia_row = baojia_user_by_id(baojia_user_id)
+    if not baojia_row:
+        return None
+    baojia_database.baojia_execute(
+        "DELETE FROM baojia_users WHERE baojia_user_id = ?",
+        (baojia_user_id,),
+    )
+    return baojia_row
 
 
 def baojia_admin_only(baojia_func):
@@ -384,6 +593,106 @@ def baojia_quote_by_id(baojia_quote_id):
     )
 
 
+def baojia_quotes_list(baojia_country=None, baojia_type=None, baojia_material=None,
+                       baojia_group_id=None, baojia_parent_group=None, baojia_group_name=None):
+    """按条件查询报价列表（Web 后台用）。
+
+    参数均为可选；不传则返回全部。
+    - baojia_group_id：群 ID 精确匹配；
+    - baojia_parent_group：所属公群模糊匹配（包含子串即命中）；
+    - baojia_group_name：群名模糊匹配（包含子串即命中）。
+    按国家、类型、更新时间排序。
+    """
+    baojia_sql = "SELECT * FROM baojia_quotes WHERE 1=1"
+    baojia_params = []
+    if baojia_country:
+        baojia_sql += " AND baojia_country = ?"
+        baojia_params.append(baojia_country)
+    if baojia_type:
+        baojia_sql += " AND baojia_type = ?"
+        baojia_params.append(baojia_type)
+    if baojia_material:
+        baojia_sql += " AND baojia_material = ?"
+        baojia_params.append(baojia_material)
+    if baojia_group_id:
+        baojia_sql += " AND baojia_group_id = ?"
+        baojia_params.append(int(baojia_group_id))
+    if baojia_parent_group:
+        baojia_sql += " AND baojia_parent_group LIKE ?"
+        baojia_params.append(f"%{baojia_parent_group}%")
+    if baojia_group_name:
+        baojia_sql += " AND baojia_group_name LIKE ?"
+        baojia_params.append(f"%{baojia_group_name}%")
+    baojia_sql += " ORDER BY baojia_country, baojia_type, baojia_updated_at DESC"
+    baojia_rows = baojia_database.baojia_query(baojia_sql, tuple(baojia_params))
+    # 按价格优势排序：国家 → 类型（代收在前）→ 组内按折算 USDT（代收降序、代付升序）
+    def baojia_sort_key(baojia_row):
+        baojia_usdt = baojia_quote_usdt(baojia_row)
+        baojia_type_order = 0 if baojia_row["baojia_type"] == baojia_config.BAOJIA_TYPE_COLLECT else 1
+        baojia_adv = -baojia_usdt if baojia_row["baojia_type"] == baojia_config.BAOJIA_TYPE_COLLECT else baojia_usdt
+        return (baojia_row["baojia_country"], baojia_type_order, baojia_adv)
+    return sorted(baojia_rows, key=baojia_sort_key)
+
+
+def baojia_update_quote_by_id(baojia_quote_id, baojia_draft, baojia_user_id):
+    """按报价 ID 直接更新（Web 后台编辑用），并写入历史表。
+
+    与 baojia_save_quote 不同：不按维度查重，直接更新指定行，
+    避免修改维度时产生重复记录。返回更新后的行，不存在返回 None。
+    """
+    baojia_existing = baojia_quote_by_id(baojia_quote_id)
+    if not baojia_existing:
+        return None
+    baojia_now_text = baojia_now()
+    with contextlib.closing(baojia_database.baojia_get_connection()) as baojia_conn:
+        with baojia_conn:
+            baojia_conn.execute(
+                """
+                UPDATE baojia_quotes SET
+                    baojia_type = ?, baojia_country = ?, baojia_material = ?,
+                    baojia_account_type = ?, baojia_settle_method = ?,
+                    baojia_fee_rate = ?, baojia_rate = ?, baojia_single_fee = ?,
+                    baojia_group_id = ?, baojia_group_name = ?, baojia_parent_group = ?,
+                    baojia_sales = ?, baojia_remark = ?, baojia_user_id = ?, baojia_updated_at = ?
+                WHERE baojia_quote_id = ?
+                """,
+                (
+                    baojia_draft["baojia_type"], baojia_draft["baojia_country"],
+                    baojia_draft.get("baojia_material", ""),
+                    baojia_draft.get("baojia_account_type", ""),
+                    baojia_draft.get("baojia_settle_method", ""),
+                    baojia_draft["baojia_fee_rate"], baojia_draft["baojia_rate"],
+                    baojia_draft.get("baojia_single_fee", 0),
+                    baojia_draft["baojia_group_id"], baojia_draft["baojia_group_name"],
+                    baojia_draft.get("baojia_parent_group", ""),
+                    baojia_draft["baojia_sales"], baojia_draft.get("baojia_remark", ""),
+                    baojia_user_id, baojia_now_text, baojia_quote_id,
+                ),
+            )
+            baojia_conn.execute(
+                """
+                INSERT INTO baojia_quote_history(
+                    baojia_quote_id, baojia_action, baojia_type, baojia_country, baojia_material,
+                    baojia_account_type, baojia_settle_method, baojia_fee_rate, baojia_rate,
+                    baojia_single_fee, baojia_group_id, baojia_group_name, baojia_parent_group,
+                    baojia_sales, baojia_remark, baojia_changed_by, baojia_changed_at)
+                VALUES (?, 'update', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    baojia_quote_id, baojia_draft["baojia_type"], baojia_draft["baojia_country"],
+                    baojia_draft.get("baojia_material", ""),
+                    baojia_draft.get("baojia_account_type", ""),
+                    baojia_draft.get("baojia_settle_method", ""),
+                    baojia_draft["baojia_fee_rate"], baojia_draft["baojia_rate"],
+                    baojia_draft.get("baojia_single_fee", 0), baojia_draft["baojia_group_id"],
+                    baojia_draft["baojia_group_name"], baojia_draft.get("baojia_parent_group", ""),
+                    baojia_draft["baojia_sales"], baojia_draft.get("baojia_remark", ""),
+                    baojia_user_id, baojia_now_text,
+                ),
+            )
+    return baojia_quote_by_id(baojia_quote_id)
+
+
 def baojia_delete_quote(baojia_quote_id, baojia_user_id):
     """删除报价并写入历史表（action='delete'），可追溯。
 
@@ -400,8 +709,8 @@ def baojia_delete_quote(baojia_quote_id, baojia_user_id):
                     baojia_quote_id, baojia_action, baojia_type, baojia_country, baojia_material,
                     baojia_account_type, baojia_settle_method, baojia_fee_rate, baojia_rate,
                     baojia_single_fee, baojia_group_id, baojia_group_name, baojia_parent_group,
-                    baojia_sales, baojia_changed_by, baojia_changed_at)
-                VALUES (?, 'delete', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    baojia_sales, baojia_remark, baojia_changed_by, baojia_changed_at)
+                VALUES (?, 'delete', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     baojia_row["baojia_quote_id"], baojia_row["baojia_type"],
@@ -410,7 +719,8 @@ def baojia_delete_quote(baojia_quote_id, baojia_user_id):
                     baojia_row["baojia_fee_rate"], baojia_row["baojia_rate"],
                     baojia_row.get("baojia_single_fee", 0), baojia_row["baojia_group_id"],
                     baojia_row["baojia_group_name"], baojia_row.get("baojia_parent_group", ""),
-                    baojia_row["baojia_sales"], baojia_user_id, baojia_now(),
+                    baojia_row["baojia_sales"], baojia_row.get("baojia_remark", ""),
+                    baojia_user_id, baojia_now(),
                 ),
             )
             baojia_conn.execute(
@@ -426,6 +736,37 @@ def baojia_list_countries():
         "SELECT DISTINCT baojia_country FROM baojia_quotes ORDER BY baojia_country"
     )
     return [baojia_row["baojia_country"] for baojia_row in baojia_rows]
+
+
+def baojia_overview_stats():
+    """后台顶部数据汇总：国家总数、报价总条数、今日/本周/本月记录条数。
+
+    以 baojia_created_at（录入时间）为准统计。
+    """
+    baojia_now = datetime.now()
+    baojia_today = baojia_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    baojia_week = baojia_today - timedelta(days=baojia_today.weekday())
+    baojia_month = baojia_today.replace(day=1)
+    baojia_fmt = lambda dt: dt.strftime(BAOJIA_DATETIME_FORMAT)
+    baojia_row = baojia_database.baojia_query_one(
+        """
+        SELECT
+            COUNT(DISTINCT baojia_country) AS baojia_countries,
+            COUNT(*) AS baojia_total,
+            SUM(CASE WHEN baojia_created_at >= ? THEN 1 ELSE 0 END) AS baojia_today,
+            SUM(CASE WHEN baojia_created_at >= ? THEN 1 ELSE 0 END) AS baojia_week,
+            SUM(CASE WHEN baojia_created_at >= ? THEN 1 ELSE 0 END) AS baojia_month
+        FROM baojia_quotes
+        """,
+        (baojia_fmt(baojia_today), baojia_fmt(baojia_week), baojia_fmt(baojia_month)),
+    )
+    return {
+        "countries": baojia_row["baojia_countries"] or 0,
+        "total": baojia_row["baojia_total"] or 0,
+        "today": baojia_row["baojia_today"] or 0,
+        "week": baojia_row["baojia_week"] or 0,
+        "month": baojia_row["baojia_month"] or 0,
+    }
 
 
 def baojia_quotes_by_country(baojia_country):
