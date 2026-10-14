@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>baojia 报价后台</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f6f8; color: #222; font-size: 14px; }
+  header { background: #1f2937; color: #fff; padding: 14px 24px; font-size: 16px; font-weight: 600; }
+  .container { max-width: 1400px; margin: 20px auto; padding: 0 16px; }
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: #fff; padding: 14px 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+  .toolbar label { font-size: 13px; color: #555; }
+  .toolbar select, .toolbar input { padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
+  .btn { padding: 7px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  .btn-primary { background: #2563eb; color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-ghost { background: #e5e7eb; color: #374151; }
+  .btn-ghost:hover { background: #d1d5db; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-small { padding: 4px 10px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eef0f3; white-space: nowrap; }
+  th { background: #f9fafb; font-weight: 600; color: #374151; position: sticky; top: 0; }
+  tr:hover { background: #f9fafb; }
+  td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #4b5563; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+  .tag-collect { background: #dcfce7; color: #166534; }
+  .tag-pay { background: #dbeafe; color: #1e40af; }
+  .empty { text-align: center; padding: 40px; color: #9ca3af; }
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .modal-mask.show { display: flex; }
+  .modal { background: #fff; border-radius: 10px; width: 560px; max-height: 90vh; overflow-y: auto; padding: 24px; }
+  .modal h3 { margin: 0 0 18px; }
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; margin-bottom: 5px; font-size: 13px; color: #374151; }
+  .form-row input, .form-row select, .form-row textarea { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; font-family: inherit; }
+  .form-row textarea { resize: vertical; min-height: 60px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .type-switch { display: flex; gap: 8px; }
+  .type-switch label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .warn { background: #fef3c7; color: #92400e; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; }
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat-card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .stat-label { font-size: 13px; color: #6b7280; margin-bottom: 6px; }
+  .stat-value { font-size: 24px; font-weight: 700; color: #111827; }
+  .stat-card.accent { border-left: 4px solid #2563eb; }
+  /* 登录页 */
+  .login-mask { position: fixed; inset: 0; background: #f5f6f8; display: flex; align-items: center; justify-content: center; z-index: 200; }
+  .login-box { background: #fff; border-radius: 12px; padding: 32px; width: 360px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
+  .login-box h2 { margin: 0 0 8px; text-align: center; }
+  .login-box p.tip { margin: 0 0 20px; text-align: center; color: #6b7280; font-size: 13px; }
+  .login-err { color: #dc2626; font-size: 13px; margin-bottom: 12px; min-height: 18px; text-align: center; }
+  .app-hidden { display: none !important; }
+  header .user-bar { float: right; font-size: 13px; font-weight: 400; }
+  header .user-bar a { color: #93c5fd; margin-left: 12px; cursor: pointer; text-decoration: none; }
+  header .user-bar a:hover { color: #fff; }
+  /* 标签页 */
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs button { padding: 8px 16px; border: 1px solid #e5e7eb; background: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  .tabs button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+  .badge-active { background: #dcfce7; color: #166534; }
+  .badge-inactive { background: #fee2e2; color: #991b1b; }
+</style>
+</head>
+<body>
+<header>
+  baojia 报价后台管理
+  <span class="user-bar"><span id="user-name"></span><a onclick="openChangePwd()">修改密码</a><a onclick="logout()">退出</a></span>
+</header>
+
+<!-- 登录页 -->
+<div class="login-mask" id="login-mask">
+  <div class="login-box">
+    <h2>baojia 报价后台</h2>
+    <p class="tip">请输入账号密码登录</p>
+    <div class="login-err" id="login-err"></div>
+    <form onsubmit="return login(event)">
+      <div class="form-row"><label>账号</label><input id="login-username" required autofocus></div>
+      <div class="form-row"><label>密码</label><input id="login-password" type="password" required></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px">登录</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="app-hidden">
+<div class="container">
+
+  <div class="warn">首次登录请及时修改默认密码。默认账号 admin / 默认密码 admin123（可在环境变量 baojia_ADMIN_USERNAME / baojia_ADMIN_PASSWORD 中配置）。</div>
+
+  <div class="tabs">
+    <button class="active" onclick="showTab('quotes')">报价管理</button>
+    <button id="tab-users-btn" onclick="showTab('users')" style="display:none">操作员管理</button>
+  </div>
+
+  <div id="tab-quotes" class="tab-pane active">
+  <div class="stats">
+    <div class="stat-card accent"><div class="stat-label">国家总数</div><div class="stat-value" id="st-countries">0</div></div>
+    <div class="stat-card"><div class="stat-label">报价总条数</div><div class="stat-value" id="st-total">0</div></div>
+    <div class="stat-card"><div class="stat-label">今日记录</div><div class="stat-value" id="st-today">0</div></div>
+    <div class="stat-card"><div class="stat-label">本周记录</div><div class="stat-value" id="st-week">0</div></div>
+    <div class="stat-card"><div class="stat-label">本月记录</div><div class="stat-value" id="st-month">0</div></div>
+  </div>
+
+  <div class="toolbar">
+    <label>国家</label>
+    <select id="filter-country"><option value="">全部</option></select>
+    <label>类型</label>
+    <select id="filter-type">
+      <option value="">全部</option>
+      <option value="collect">代收</option>
+      <option value="pay">代付</option>
+    </select>
+    <label>料性</label>
+    <input id="filter-material" placeholder="精确匹配，留空全部" style="width:120px">
+    <label>群 ID</label>
+    <input id="filter-gid" placeholder="精确匹配" style="width:150px">
+    <label>所属公群</label>
+    <input id="filter-parent" placeholder="数字模糊匹配，如 2663" style="width:160px">
+    <label>群名</label>
+    <input id="filter-gname" placeholder="模糊匹配" style="width:140px">
+    <button class="btn btn-primary" onclick="loadQuotes()">查询</button>
+    <button class="btn btn-ghost" onclick="resetFilter()">重置</button>
+    <button class="btn btn-primary" onclick="openModal()">新建报价</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th><th>国家</th><th>类型</th><th>料性</th><th>账户</th><th>结算</th>
+        <th>手续费%</th><th>汇率</th><th>单笔</th><th>群名</th><th>所属公群</th>
+        <th>业务员</th><th>备注</th><th>更新时间</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="quote-tbody"></tbody>
+  </table>
+  <div id="empty" class="empty" style="display:none">暂无报价</div>
+
+  </div><!-- /#tab-quotes -->
+
+  <!-- 操作员管理 -->
+  <div id="tab-users" class="tab-pane">
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="openUserEdit(null)">新增用户</button>
+    </div>
+    <table>
+      <thead><tr><th>ID</th><th>姓名</th><th>用户名</th><th>角色</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody id="user-tbody"></tbody>
+    </table>
+    <div id="user-empty" class="empty" style="display:none">暂无用户</div>
+  </div>
+
+</div>
+</div><!-- /#app -->
+
+<!-- 新建/编辑弹窗 -->
+<div class="modal-mask" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">新建报价</h3>
+    <form id="quote-form" onsubmit="return saveQuote(event)">
+      <input type="hidden" id="f-id">
+      <div class="form-row">
+        <label>类型</label>
+        <div class="type-switch">
+          <label><input type="radio" name="baojia_type" value="collect" checked onchange="toggleType()"> 代收</label>
+          <label><input type="radio" name="baojia_type" value="pay" onchange="toggleType()"> 代付</label>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>国家 *</label><input id="f-country" required></div>
+        <div class="form-row collect-only"><label>料性</label><input id="f-material"></div>
+        <div class="form-row collect-only"><label>账户类别</label><input id="f-account"></div>
+        <div class="form-row collect-only"><label>结算方式</label><input id="f-settle"></div>
+        <div class="form-row"><label>手续费% *</label><input id="f-fee" type="number" step="0.01" required></div>
+        <div class="form-row"><label>汇率 *</label><input id="f-rate" type="number" step="0.0001" required></div>
+        <div class="form-row pay-only" style="display:none"><label>单笔费用</label><input id="f-single" type="number" step="0.01" value="0"></div>
+        <div class="form-row"><label>群组 ID *</label><input id="f-gid" type="number" required></div>
+        <div class="form-row"><label>群名称</label><input id="f-gname"></div>
+        <div class="form-row"><label>所属公群</label><input id="f-parent"></div>
+        <div class="form-row"><label>业务员</label><input id="f-sales"></div>
+      </div>
+      <div class="form-row"><label>备注</label><textarea id="f-remark"></textarea></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 修改密码弹窗 -->
+<div class="modal-mask" id="pwd-modal">
+  <div class="modal">
+    <div class="modal-title">修改密码</div>
+    <div class="modal-body">
+      <div class="form-row"><label>旧密码 *</label><input id="pwd-old" type="password"></div>
+      <div class="form-row"><label>新密码 *</label><input id="pwd-new" type="password"></div>
+      <div class="form-row"><label>确认新密码 *</label><input id="pwd-new2" type="password"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveChangePwd()">确认</button>
+      <button class="btn" onclick="document.getElementById('pwd-modal').classList.remove('show')">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 用户编辑弹窗 -->
+<div class="modal-mask" id="user-modal">
+  <div class="modal">
+    <div class="modal-title" id="user-modal-title">新增用户</div>
+    <div class="modal-body">
+      <div class="form-row"><label>姓名 *</label><input id="u-full_name"></div>
+      <div class="form-row"><label>用户名（Web登录）</label><input id="u-username" placeholder="不填则无法登录Web"></div>
+      <div class="form-row"><label>登录密码</label><input id="u-password" type="password" placeholder="仅新增/需改密时填写"></div>
+      <div class="form-row"><label>角色</label><select id="u-role"><option value="operator">操作员</option><option value="admin">管理员</option></select></div>
+      <div class="form-row"><label>Telegram ID</label><input id="u-telegram_id" type="number" placeholder="填则作为该操作员ID，不填则分配Web账号"></div>
+      <div class="form-row"><label><input type="checkbox" id="u-is_active" checked> 启用</label></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveUser()">保存</button>
+      <button class="btn" onclick="document.getElementById('user-modal').classList.remove('show')">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 重置密码弹窗 -->
+<div class="modal-mask" id="rst-modal">
+  <div class="modal">
+    <div class="modal-title">重置用户密码</div>
+    <div class="modal-body">
+      <div class="form-row"><label>新密码 *</label><input id="rst-new" type="password"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveResetPwd()">确认重置</button>
+      <button class="btn" onclick="document.getElementById('rst-modal').classList.remove('show')">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = {
+  countries: '/api/countries',
+  quotes: '/api/quotes',
+};
+
+// ---------- 鉴权 ----------
+let authToken = localStorage.getItem('baojia_token') || '';
+
+function apiFetch(url, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {});
+  if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  return fetch(url, Object.assign({}, opts, { headers })).then(r => {
+    if (r.status === 401) {
+      authToken = '';
+      localStorage.removeItem('baojia_token');
+      showLogin();
+      throw new Error('unauthorized');
+    }
+    return r;
+  });
+}
+
+function showLogin() {
+  document.getElementById('app').classList.add('app-hidden');
+  document.getElementById('login-mask').style.display = 'flex';
+}
+
+let isAdmin = false;
+
+function showApp(user) {
+  isAdmin = !!(user && user.baojia_is_admin);
+  document.getElementById('user-name').textContent = user ? user.baojia_full_name : '';
+  document.getElementById('login-mask').style.display = 'none';
+  document.getElementById('app').classList.remove('app-hidden');
+  document.getElementById('tab-users-btn').style.display = isAdmin ? '' : 'none';
+  loadCountries();
+  loadQuotes();
+  loadStats();
+  if (isAdmin) loadUsers();
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector(`.tabs button[onclick="showTab('${name}')"]`).classList.add('active');
+}
+
+// ---------- 修改密码 ----------
+function openChangePwd() {
+  document.getElementById('pwd-old').value = '';
+  document.getElementById('pwd-new').value = '';
+  document.getElementById('pwd-new2').value = '';
+  document.getElementById('pwd-modal').classList.add('show');
+}
+
+async function saveChangePwd() {
+  const oldP = document.getElementById('pwd-old').value;
+  const newP = document.getElementById('pwd-new').value;
+  const newP2 = document.getElementById('pwd-new2').value;
+  if (!oldP || !newP) { alert('请填写旧密码和新密码'); return; }
+  if (newP !== newP2) { alert('两次新密码不一致'); return; }
+  const r = await apiFetch('/api/me/password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ old_password: oldP, new_password: newP }),
+  });
+  const d = await r.json();
+  if (!d.ok) { alert(d.error); return; }
+  alert('密码修改成功，请重新登录');
+  document.getElementById('pwd-modal').classList.remove('show');
+  logout();
+}
+
+// ---------- 操作员管理 ----------
+async function loadUsers() {
+  const r = await apiFetch('/api/users');
+  const d = await r.json();
+  const tbody = document.getElementById('user-tbody');
+  tbody.innerHTML = '';
+  if (!d.users || !d.users.length) {
+    document.getElementById('user-empty').style.display = '';
+    return;
+  }
+  document.getElementById('user-empty').style.display = 'none';
+  d.users.forEach(u => {
+    const tr = document.createElement('tr');
+    const isProtected = u.baojia_user_id === 0;
+    const roleLabel = u.baojia_role === 'admin' ? '管理员' : '操作员';
+    const activeLabel = u.baojia_is_active === 1 ? '启用' : '禁用';
+    const activeClass = u.baojia_is_active === 1 ? 'badge-active' : 'badge-inactive';
+    const telegramNote = u.baojia_user_id > 0 ? u.baojia_user_id : 'Web账号';
+    tr.innerHTML = `
+      <td>${telegramNote}</td>
+      <td>${esc(u.baojia_full_name)}</td>
+      <td>${esc(u.baojia_username || '-')}</td>
+      <td>${roleLabel}</td>
+      <td><span class="badge ${activeClass}">${activeLabel}</span></td>
+      <td class="actions">
+        <button class="btn btn-link" onclick='openUserEdit(${JSON.stringify(u)})'>编辑</button>
+        <button class="btn btn-link" onclick='toggleUserActive(${JSON.stringify(u)})' ${isProtected ? 'disabled' : ''}>${u.baojia_is_active === 1 ? '禁用' : '启用'}</button>
+        <button class="btn btn-link" onclick='openResetPwd(${JSON.stringify(u)})'>重置密码</button>
+        <button class="btn btn-link danger" onclick='delUser(${JSON.stringify(u)})' ${isProtected ? 'disabled' : ''}>删除</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+let editingUser = null;
+function openUserEdit(u) {
+  editingUser = u;
+  document.getElementById('user-modal-title').textContent = u ? '编辑用户' : '新增用户';
+  document.getElementById('u-full_name').value = u ? u.baojia_full_name : '';
+  document.getElementById('u-username').value = u ? (u.baojia_username || '') : '';
+  document.getElementById('u-password').value = '';
+  document.getElementById('u-role').value = u ? u.baojia_role : 'operator';
+  document.getElementById('u-telegram_id').value = (u && u.baojia_user_id > 0) ? u.baojia_user_id : '';
+  document.getElementById('u-is_active').checked = u ? u.baojia_is_active === 1 : true;
+  document.getElementById('user-modal').classList.add('show');
+}
+
+async function saveUser() {
+  const body = {
+    full_name: document.getElementById('u-full_name').value.trim(),
+    username: document.getElementById('u-username').value.trim(),
+    role: document.getElementById('u-role').value,
+    is_active: document.getElementById('u-is_active').checked ? 1 : 0,
+  };
+  const tgId = document.getElementById('u-telegram_id').value.trim();
+  if (editingUser) {
+    // 编辑：更新字段；若填了密码则单独重置
+    const r = await apiFetch(`/api/users/${editingUser.baojia_user_id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.error); return; }
+    const pwd = document.getElementById('u-password').value;
+    if (pwd) {
+      const r2 = await apiFetch(`/api/users/${editingUser.baojia_user_id}/password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_password: pwd }),
+      });
+      const d2 = await r2.json();
+      if (!d2.ok) { alert(d2.error); return; }
+    }
+  } else {
+    // 新增
+    if (tgId) body.telegram_id = parseInt(tgId);
+    const pwd = document.getElementById('u-password').value;
+    if (pwd) body.password = pwd;
+    if (!body.username && !body.password && !tgId) {
+      alert('Web账号需填写用户名和密码，或填写 Telegram ID'); return;
+    }
+    const r = await apiFetch('/api/users', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!d.ok) { alert(d.error); return; }
+  }
+  document.getElementById('user-modal').classList.remove('show');
+  loadUsers();
+}
+
+async function toggleUserActive(u) {
+  const newActive = u.baojia_is_active === 1 ? 0 : 1;
+  const r = await apiFetch(`/api/users/${u.baojia_user_id}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_active: newActive }),
+  });
+  const d = await r.json();
+  if (!d.ok) { alert(d.error); return; }
+  loadUsers();
+}
+
+let resetTarget = null;
+function openResetPwd(u) {
+  resetTarget = u;
+  document.getElementById('rst-new').value = '';
+  document.getElementById('rst-modal').classList.add('show');
+}
+
+async function saveResetPwd() {
+  const pwd = document.getElementById('rst-new').value;
+  if (!pwd) { alert('请输入新密码'); return; }
+  const r = await apiFetch(`/api/users/${resetTarget.baojia_user_id}/password`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ new_password: pwd }),
+  });
+  const d = await r.json();
+  if (!d.ok) { alert(d.error); return; }
+  document.getElementById('rst-modal').classList.remove('show');
+  alert('密码已重置');
+}
+
+async function delUser(u) {
+  if (!confirm(`确定删除用户「${u.baojia_full_name}」吗？`)) return;
+  const r = await apiFetch(`/api/users/${u.baojia_user_id}`, { method: 'DELETE' });
+  const d = await r.json();
+  if (!d.ok) { alert(d.error); return; }
+  loadUsers();
+}
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function checkAuth() {
+  if (!authToken) { showLogin(); return; }
+  try {
+    const r = await apiFetch('/api/me');
+    const d = await r.json();
+    if (d.ok) showApp(d.user); else showLogin();
+  } catch (e) {
+    /* 401 已由 apiFetch 处理 */
+  }
+}
+
+async function login(e) {
+  e.preventDefault();
+  document.getElementById('login-err').textContent = '';
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const r = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const d = await r.json();
+  if (!d.ok) { document.getElementById('login-err').textContent = d.error; return; }
+  authToken = d.token;
+  localStorage.setItem('baojia_token', authToken);
+  showApp(d.user);
+}
+
+async function logout() {
+  if (authToken) {
+    try { await apiFetch('/api/logout', { method: 'POST' }); } catch (e) {}
+  }
+  authToken = '';
+  localStorage.removeItem('baojia_token');
+  showLogin();
+}
+
+// ---------- 顶部汇总统计 ----------
+async function loadStats() {
+  const r = await apiFetch('/api/stats');
+  const d = await r.json();
+  document.getElementById('st-countries').textContent = d.countries;
+  document.getElementById('st-total').textContent = d.total;
+  document.getElementById('st-today').textContent = d.today;
+  document.getElementById('st-week').textContent = d.week;
+  document.getElementById('st-month').textContent = d.month;
+}
+
+// ---------- 列表 ----------
+async function loadCountries() {
+  const r = await apiFetch(API.countries);
+  const d = await r.json();
+  const sel = document.getElementById('filter-country');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全部</option>' + d.countries.map(c => `<option value="${c}">${c}</option>`).join('');
+  sel.value = cur;
+}
+
+async function loadQuotes() {
+  const params = new URLSearchParams();
+  const c = document.getElementById('filter-country').value;
+  const t = document.getElementById('filter-type').value;
+  const m = document.getElementById('filter-material').value.trim();
+  const gid = document.getElementById('filter-gid').value.trim();
+  const parent = document.getElementById('filter-parent').value.trim();
+  const gname = document.getElementById('filter-gname').value.trim();
+  if (c) params.set('country', c);
+  if (t) params.set('type', t);
+  if (m) params.set('material', m);
+  if (gid) params.set('group_id', gid);
+  if (parent) params.set('parent_group', parent);
+  if (gname) params.set('group_name', gname);
+  const r = await apiFetch(API.quotes + '?' + params.toString());
+  const rows = await r.json();
+  const tbody = document.getElementById('quote-tbody');
+  const empty = document.getElementById('empty');
+  if (!rows.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = rows.map(row => {
+    const typeCls = row.baojia_type === 'collect' ? 'tag-collect' : 'tag-pay';
+    const typeTxt = row.baojia_type === 'collect' ? '代收' : '代付';
+    return `<tr>
+      <td class="mono">${row.baojia_quote_id}</td>
+      <td>${row.baojia_country}</td>
+      <td><span class="tag ${typeCls}">${typeTxt}</span></td>
+      <td>${row.baojia_material || '-'}</td>
+      <td>${row.baojia_account_type || '-'}</td>
+      <td>${row.baojia_settle_method || '-'}</td>
+      <td>${row.baojia_fee_rate}</td>
+      <td>${row.baojia_rate}</td>
+      <td>${row.baojia_type === 'pay' ? (row.baojia_single_fee || '') : '-'}</td>
+      <td>${row.baojia_group_name}</td>
+      <td>${row.baojia_parent_group || '-'}</td>
+      <td>${row.baojia_sales}</td>
+      <td>${row.baojia_remark || ''}</td>
+      <td class="mono">${(row.baojia_updated_at || '').slice(0, 16).replace('T', ' ')}</td>
+      <td>
+        <button class="btn btn-ghost btn-small" onclick='openModal(${JSON.stringify(row).replace(/'/g, "&#39;")})'>编辑</button>
+        <button class="btn btn-danger btn-small" onclick="delQuote(${row.baojia_quote_id})">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function resetFilter() {
+  document.getElementById('filter-country').value = '';
+  document.getElementById('filter-type').value = '';
+  document.getElementById('filter-material').value = '';
+  document.getElementById('filter-gid').value = '';
+  document.getElementById('filter-parent').value = '';
+  document.getElementById('filter-gname').value = '';
+  loadQuotes();
+}
+
+// ---------- 新建/编辑 ----------
+function toggleType() {
+  const isPay = document.querySelector('input[name="baojia_type"]:checked').value === 'pay';
+  document.querySelectorAll('.collect-only').forEach(el => el.style.display = isPay ? 'none' : '');
+  document.querySelectorAll('.pay-only').forEach(el => el.style.display = isPay ? '' : 'none');
+}
+
+function openModal(row) {
+  document.getElementById('modal-title').textContent = row ? '编辑报价' : '新建报价';
+  document.getElementById('f-id').value = row ? row.baojia_quote_id : '';
+  const type = row ? row.baojia_type : 'collect';
+  document.querySelector(`input[name="baojia_type"][value="${type}"]`).checked = true;
+  document.getElementById('f-country').value = row ? row.baojia_country : '';
+  document.getElementById('f-material').value = row ? (row.baojia_material || '') : '';
+  document.getElementById('f-account').value = row ? (row.baojia_account_type || '') : '';
+  document.getElementById('f-settle').value = row ? (row.baojia_settle_method || '') : '';
+  document.getElementById('f-fee').value = row ? row.baojia_fee_rate : '';
+  document.getElementById('f-rate').value = row ? row.baojia_rate : '';
+  document.getElementById('f-single').value = row ? (row.baojia_single_fee || 0) : 0;
+  document.getElementById('f-gid').value = row ? row.baojia_group_id : '';
+  document.getElementById('f-gname').value = row ? (row.baojia_group_name || '') : '';
+  document.getElementById('f-parent').value = row ? (row.baojia_parent_group || '') : '';
+  document.getElementById('f-sales').value = row ? (row.baojia_sales || '') : '';
+  document.getElementById('f-remark').value = row ? (row.baojia_remark || '') : '';
+  toggleType();
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+async function saveQuote(e) {
+  e.preventDefault();
+  const id = document.getElementById('f-id').value;
+  const body = {
+    baojia_type: document.querySelector('input[name="baojia_type"]:checked').value,
+    baojia_country: document.getElementById('f-country').value.trim(),
+    baojia_material: document.getElementById('f-material').value.trim(),
+    baojia_account_type: document.getElementById('f-account').value.trim(),
+    baojia_settle_method: document.getElementById('f-settle').value.trim(),
+    baojia_fee_rate: parseFloat(document.getElementById('f-fee').value),
+    baojia_rate: parseFloat(document.getElementById('f-rate').value),
+    baojia_single_fee: parseFloat(document.getElementById('f-single').value) || 0,
+    baojia_group_id: parseInt(document.getElementById('f-gid').value, 10),
+    baojia_group_name: document.getElementById('f-gname').value.trim(),
+    baojia_parent_group: document.getElementById('f-parent').value.trim(),
+    baojia_sales: document.getElementById('f-sales').value.trim(),
+    baojia_remark: document.getElementById('f-remark').value.trim(),
+  };
+  const url = id ? `${API.quotes}/${id}` : API.quotes;
+  const method = id ? 'PUT' : 'POST';
+  const r = await apiFetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (!d.ok) { alert(d.error || '保存失败'); return; }
+  closeModal();
+  loadCountries();
+  loadQuotes();
+  loadStats();
+}
+
+async function delQuote(id) {
+  if (!confirm('确认删除这条报价？该操作会记入历史。')) return;
+  const r = await apiFetch(`${API.quotes}/${id}`, { method: 'DELETE' });
+  const d = await r.json();
+  if (!d.ok) { alert(d.error || '删除失败'); return; }
+  loadCountries();
+  loadQuotes();
+  loadStats();
+}
+
+// 点击遮罩关闭
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target.id === 'modal') closeModal();
+});
+
+checkAuth();
+</script>
+</body>
+</html>
