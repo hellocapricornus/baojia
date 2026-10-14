@@ -110,6 +110,8 @@ BAOJIA_MIGRATION_COLUMNS = [
     ("baojia_quote_history", "baojia_parent_group", "TEXT NOT NULL DEFAULT ''"),
     ("baojia_quotes", "baojia_remark", "TEXT NOT NULL DEFAULT ''"),
     ("baojia_quote_history", "baojia_remark", "TEXT NOT NULL DEFAULT ''"),
+    ("baojia_users", "baojia_username", "TEXT NOT NULL DEFAULT ''"),
+    ("baojia_users", "baojia_password_hash", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 
