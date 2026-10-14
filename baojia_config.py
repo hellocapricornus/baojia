@@ -31,6 +31,10 @@ baojia_BOT_TOKEN = os.getenv("baojia_BOT_TOKEN", "").strip()
 # 超级管理员 Telegram ID 集合
 baojia_ADMIN_IDS = baojia_parse_int_list(os.getenv("baojia_ADMIN_IDS", ""))
 
+# Web 后台初始管理员账号密码（首次启动自动创建，账号已存在则跳过）
+baojia_ADMIN_USERNAME = os.getenv("baojia_ADMIN_USERNAME", "admin").strip()
+baojia_ADMIN_PASSWORD = os.getenv("baojia_ADMIN_PASSWORD", "admin123").strip()
+
 # SQLite 数据库路径
 baojia_DB_PATH = os.getenv("baojia_DB_PATH", "").strip() or str(
     BAOJIA_BASE_DIR / "baojia_data" / "baojia_bot.db"
@@ -57,3 +61,7 @@ BAOJIA_BASE_AMOUNT = 1_000_000
 
 # 群内展开分页：每页报价条数
 BAOJIA_PAGE_SIZE = 6
+
+# Web 后台管理端口
+baojia_WEB_PORT = int(os.getenv("baojia_WEB_PORT", "8000"))
+baojia_WEB_HOST = os.getenv("baojia_WEB_HOST", "0.0.0.0").strip()
